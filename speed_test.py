@@ -49,16 +49,16 @@ print("Bus voltage is " + str(my_drive.vbus_voltage) + "V")
 t0 = time.monotonic()
 while True:
     try:        
-        val = hx.get_weight(5)
+        val = hx.get_weight(1)
         print('val: {}'.format(val))
 
         # hx.power_down()
         # hx.power_up()
 
         setpoint = math.sin((time.monotonic() - t0)/2)
-        print("goto " + str(setpoint))
+        # print("goto " + str(setpoint))
         my_drive.axis0.controller.input_pos = setpoint
-        time.sleep(0.01)
+        # time.sleep(0.01)
 
     except (KeyboardInterrupt, SystemExit):
         print("Cleaning...")
