@@ -54,7 +54,7 @@ val = hx.get_weight(1)
 #     ax.controller.vel_setpoint,\
 #     ax.motor.current_control.Iq_setpoint,\
 #     val/1000.0])
-ax.controller.input_vel = 3.0
+ax.controller.input_vel = 10.0
 t0 = time.monotonic()
 data = []
 data.append(["time [s]","velocity setpoint [Hz]",\
@@ -68,7 +68,7 @@ while True:
         row = [time.monotonic() - t0,\
             ax.controller.vel_setpoint,\
             ax.encoder.vel_estimate,\
-            ax.motor.current_control.Iq_setpoint*kt,\
+            ax.motor.current_control.Iq_measured*kt,\
             weight*-0.001*9.81*5*2.54/100]
         data.append(row)
 
