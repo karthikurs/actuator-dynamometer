@@ -7,7 +7,9 @@ from __future__ import print_function
 
 import odrive
 from odrive.enums import *
+from odrive.utils import *
 import sys
+import csv
 import time
 import math
 import RPi.GPIO as GPIO
@@ -33,41 +35,56 @@ print("Tare done! Add weight now...")
 # Find a connected ODrive (this will block until you connect one)
 print("finding an odrive...")
 my_drive = odrive.find_any()
+ax = my_drive.axis0
 
 # Calibrate motor and wait for it to finish
 print("starting calibration...")
-my_drive.axis0.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
-while my_drive.axis0.current_state != AXIS_STATE_IDLE:
+ax.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+while ax.current_state != AXIS_STATE_IDLE:
     time.sleep(0.1)
 
-my_drive.axis0.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-my_drive.axis0.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
-my_drive.axis0.controller.config.control_mode = CONTROL_MODE_POSITION_CONTROL
+ax.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+ax.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
+# ax.controller.config.control_mode = CONTROL_MODE_POSITION_CONTROL
+ax.controller.config.control_mode = CONTROL_MODE_VELOCITY_CONTROL
 # To read a value, simply read the property
 print("Bus voltage is " + str(my_drive.vbus_voltage) + "V")
-
+val = hx.get_weight(1)
+# start_liveplotter(lambda:[ax.encoder.vel_estimate,\
+#     ax.controller.vel_setpoint,\
+#     ax.motor.current_control.Iq_setpoint,\
+#     val/1000.0])
+ax.controller.input_vel = 3.0
 t0 = time.monotonic()
+data = []
+data.append(["time [s]","velocity setpoint [Hz]",\
+    "velocity measured [Hz]","motor torque [Nm]",\
+    "brake torque [Nm]"])
+kt = ax.motor.config.torque_constant
 while True:
     try:        
-        val = hx.get_weight(1)
-        print('val: {}'.format(val))
+        weight = hx.get_weight(1)
+        # print('weight: {}'.format(weight))
+        row = [time.monotonic() - t0,\
+            ax.controller.vel_setpoint,\
+            ax.encoder.vel_estimate,\
+            ax.motor.current_control.Iq_setpoint*kt,\
+            weight*-0.001*9.81*5*2.54/100]
+        data.append(row)
 
-        # hx.power_down()
-        # hx.power_up()
-
-        setpoint = math.sin((time.monotonic() - t0)/2)
-        # print("goto " + str(setpoint))
-        my_drive.axis0.controller.input_pos = setpoint
         # time.sleep(0.01)
 
     except (KeyboardInterrupt, SystemExit):
         print("Cleaning...")
         GPIO.cleanup()
-        my_drive.axis0.requested_state = AXIS_STATE_IDLE
+        ax.requested_state = AXIS_STATE_IDLE
+        with open("new_file.csv","w+") as my_csv:
+            csvWriter = csv.writer(my_csv,delimiter=',')
+            csvWriter.writerows(data)
         print("Bye!")
         sys.exit()
     
-    # except :
-    #     my_drive.axis0.requested_state = AXIS_STATE_IDLE
+    except :
+        ax.requested_state = AXIS_STATE_IDLE
 
 
