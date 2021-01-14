@@ -57,8 +57,11 @@ val = hx.get_weight(1)
 ax.controller.input_vel = 10.0
 t0 = time.monotonic()
 data = []
+data.append(["# Test started at " + time.asctime()])
 data.append(["time [s]","velocity setpoint [Hz]",\
-    "velocity measured [Hz]","motor torque [Nm]",\
+    "velocity measured [Hz]","motor current [A]",\
+    "load cell weight [g]",\
+    "motor torque [Nm]",\
     "brake torque [Nm]"])
 kt = ax.motor.config.torque_constant
 while True:
@@ -68,6 +71,8 @@ while True:
         row = [time.monotonic() - t0,\
             ax.controller.vel_setpoint,\
             ax.encoder.vel_estimate,\
+            ax.motor.current_control.Iq_measured,\
+            -weight,\
             ax.motor.current_control.Iq_measured*kt,\
             weight*-0.001*9.81*5*2.54/100]
         data.append(row)
@@ -78,7 +83,7 @@ while True:
         print("Cleaning...")
         GPIO.cleanup()
         ax.requested_state = AXIS_STATE_IDLE
-        with open("new_file.csv","w+") as my_csv:
+        with open(time.asctime() + ".csv","w+") as my_csv:
             csvWriter = csv.writer(my_csv,delimiter=',')
             csvWriter.writerows(data)
         print("Bye!")
