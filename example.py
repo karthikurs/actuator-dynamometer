@@ -2,6 +2,8 @@
 
 import time
 import sys
+import csv
+import math
 
 EMULATE_HX711=False
 
@@ -51,7 +53,9 @@ print("Tare done! Add weight now...")
 # to use both channels, you'll need to tare them both
 #hx.tare_A()
 #hx.tare_B()
-
+t0 = time.monotonic()
+data = []
+data.append(["time [s]", "brake torque [Nm]"])
 while True:
     try:
         # These three lines are usefull to debug wether to use MSB or LSB in the reading formats
@@ -63,8 +67,11 @@ while True:
         # print binary_string + " " + np_arr8_string
         
         # Prints the weight. Comment if you're debbuging the MSB and LSB issue.
-        val = hx.get_weight(5)
-        print('val: {}'.format(val))
+        weight = hx.get_weight(1)
+        print('weight: {}'.format(weight))
+        row = [time.monotonic() - t0,\
+            weight*-0.001*9.81*5*2.54/100]
+        data.append(row)
 
         # To get weight from both channels (if you have load cells hooked up 
         # to both channel A and B), do something like this
@@ -72,9 +79,15 @@ while True:
         #val_B = hx.get_weight_B(5)
         #print "A: %s  B: %s" % ( val_A, val_B )
 
-        hx.power_down()
-        hx.power_up()
-        time.sleep(0.1)
+        # hx.power_down()
+        # hx.power_up()
+        time.sleep(0.001)
 
     except (KeyboardInterrupt, SystemExit):
-        cleanAndExit()
+        print("Cleaning...")
+        GPIO.cleanup()
+        with open("new_file.csv","w+") as my_csv:
+            csvWriter = csv.writer(my_csv,delimiter=',')
+            csvWriter.writerows(data)
+        print("Bye!")
+        sys.exit()
