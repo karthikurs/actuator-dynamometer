@@ -72,7 +72,7 @@ while True:
             ax.controller.vel_setpoint,\
             ax.encoder.vel_estimate,\
             ax.motor.current_control.Iq_measured,\
-            -weight,\
+            -weight,\ 
             ax.motor.current_control.Iq_measured*kt,\
             weight*-0.001*9.81*5*2.54/100]
         data.append(row)
