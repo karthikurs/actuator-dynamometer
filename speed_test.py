@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
 # Based on example.py from https://github.com/tatobari/hx711py
 # and https://github.com/odriverobotics/ODrive/blob/master/tools/odrive_demo.py
@@ -28,6 +28,9 @@ def main():
         type=float)
     parser.add_argument("-s", "--speed",\
         help="enter speed in rev/s (i.e., Hz) (default = 2 Hz)",
+        type=float)
+    parser.add_argument("-f", "--friction",\
+        help="enter torque to compensate for system friction (default = 0.050 Nm)",
         type=float)
 
     args = parser.parse_args()
@@ -67,6 +70,9 @@ def main():
     ax.controller.input_vel = 2.0
     if args.speed is not None:
         ax.controller.input_vel = args.speed
+    friction_comp = 0.05
+    if args.friction is not None:
+        friction_comp = args.friction
     t0 = time.monotonic()
     data = []
     data.append(["# Test started at " + time.asctime()])
@@ -78,19 +84,22 @@ def main():
         "velocity measured [Hz]","motor current [A]",\
         "load cell weight [g]",\
         "motor torque [Nm]",\
-        "brake torque [Nm]"])
+        "brake torque [Nm]",\
+        "compensated brake torque [Nm]"])
     kt = ax.motor.config.torque_constant
     while True:
         try:        
             weight = hx.get_weight(1)
             # print('weight: {}'.format(weight))
+            brake_torque = weight*-0.001*9.81*5*2.54/100
             row = [time.monotonic() - t0,\
                 ax.controller.vel_setpoint,\
                 ax.encoder.vel_estimate,\
                 ax.motor.current_control.Iq_measured,\
                 -1.0*weight,\
                 ax.motor.current_control.Iq_measured*kt,\
-                weight*-0.001*9.81*5*2.54/100]
+                brake_torque,\
+                brake_torque + np.sign(ax.encoder.vel_estimate)*friction_comp]
             data.append(row)
 
             # time.sleep(0.01)
