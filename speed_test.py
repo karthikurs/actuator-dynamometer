@@ -9,87 +9,98 @@ import odrive
 from odrive.enums import *
 from odrive.utils import *
 import sys
+import argparse
 import csv
 import time
 import math
 import RPi.GPIO as GPIO
 from hx711 import HX711
 
-referenceUnit = 22*876/881
+def main():
+    referenceUnit = 22*876/881
 
-def cleanAndExit():
-    print("Cleaning...")
-    GPIO.cleanup()
-    print("Bye!")
-    sys.exit()
+    parser = argparse.ArgumentParser(description='Runs ODrive velocity controller under current limiting')
+    parser.add_argument("-c", "--comment",\
+        help="enter comment string to be included in output csv",
+        type=str)
+    parser.add_argument("-i", "--current",\
+        help="enter current limit in Amps (default = 10A)",
+        type=float)
 
-hx = HX711(5, 6)
-hx.set_reading_format("MSB", "MSB")
-hx.set_reference_unit(referenceUnit)
-hx.reset()
+    args = parser.parse_args()
 
-hx.tare()
+    hx = HX711(5, 6)
+    hx.set_reading_format("MSB", "MSB")
+    hx.set_reference_unit(referenceUnit)
+    hx.reset()
 
-print("Tare done! Add weight now...")
+    hx.tare()
 
-# Find a connected ODrive (this will block until you connect one)
-print("finding an odrive...")
-my_drive = odrive.find_any()
-ax = my_drive.axis0
+    print("load cell tare done...")
 
-# Calibrate motor and wait for it to finish
-print("starting calibration...")
-ax.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
-while ax.current_state != AXIS_STATE_IDLE:
-    time.sleep(0.1)
+    # Find a connected ODrive (this will block until you connect one)
+    print("finding an odrive...")
+    my_drive = odrive.find_any()
+    ax = my_drive.axis0
 
-ax.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
-ax.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
-# ax.controller.config.control_mode = CONTROL_MODE_POSITION_CONTROL
-ax.controller.config.control_mode = CONTROL_MODE_VELOCITY_CONTROL
-# To read a value, simply read the property
-print("Bus voltage is " + str(my_drive.vbus_voltage) + "V")
-val = hx.get_weight(1)
-# start_liveplotter(lambda:[ax.encoder.vel_estimate,\
-#     ax.controller.vel_setpoint,\
-#     ax.motor.current_control.Iq_setpoint,\
-#     val/1000.0])
-ax.controller.input_vel = 10.0
-t0 = time.monotonic()
-data = []
-data.append(["# Test started at " + time.asctime()])
-data.append(["time [s]","velocity setpoint [Hz]",\
-    "velocity measured [Hz]","motor current [A]",\
-    "load cell weight [g]",\
-    "motor torque [Nm]",\
-    "brake torque [Nm]"])
-kt = ax.motor.config.torque_constant
-while True:
-    try:        
-        weight = hx.get_weight(1)
-        # print('weight: {}'.format(weight))
-        row = [time.monotonic() - t0,\
-            ax.controller.vel_setpoint,\
-            ax.encoder.vel_estimate,\
-            ax.motor.current_control.Iq_measured,\
-            -weight,\ 
-            ax.motor.current_control.Iq_measured*kt,\
-            weight*-0.001*9.81*5*2.54/100]
-        data.append(row)
+    # Calibrate motor and wait for it to finish
+    print("odrive found. starting calibration...")
+    if args.current is not None:
+        ax.motor.config.current_lim = args.current
+    ax.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
+    while ax.current_state != AXIS_STATE_IDLE:
+        time.sleep(0.1)
 
-        # time.sleep(0.01)
+    ax.requested_state = AXIS_STATE_CLOSED_LOOP_CONTROL
+    ax.controller.config.input_mode = INPUT_MODE_PASSTHROUGH
+    # ax.controller.config.control_mode = CONTROL_MODE_POSITION_CONTROL
+    ax.controller.config.control_mode = CONTROL_MODE_VELOCITY_CONTROL
+    val = hx.get_weight(1)
+    # start_liveplotter(lambda:[ax.encoder.vel_estimate,\
+    #     ax.controller.vel_setpoint,\
+    #     ax.motor.current_control.Iq_setpoint,\
+    #     val/1000.0])
+    ax.controller.input_vel = 10.0
+    t0 = time.monotonic()
+    data = []
+    data.append(["# Test started at " + time.asctime()])
+    data.append(["# vbus = " + '{}'.format(round(my_drive.vbus_voltage, 3)) + " V"])
+    data.append(["# current limit = " + '{}'.format(round(ax.motor.config.current_lim, 3)) + " A"])
+    if args.comment is not None:
+        data.append(["# user comment: " + args.comment])
+    data.append(["time [s]","velocity setpoint [Hz]",\
+        "velocity measured [Hz]","motor current [A]",\
+        "load cell weight [g]",\
+        "motor torque [Nm]",\
+        "brake torque [Nm]"])
+    kt = ax.motor.config.torque_constant
+    while True:
+        try:        
+            weight = hx.get_weight(1)
+            # print('weight: {}'.format(weight))
+            row = [time.monotonic() - t0,\
+                ax.controller.vel_setpoint,\
+                ax.encoder.vel_estimate,\
+                ax.motor.current_control.Iq_measured,\
+                -1.0*weight,\
+                ax.motor.current_control.Iq_measured*kt,\
+                weight*-0.001*9.81*5*2.54/100]
+            data.append(row)
 
-    except (KeyboardInterrupt, SystemExit):
-        print("Cleaning...")
-        GPIO.cleanup()
-        ax.requested_state = AXIS_STATE_IDLE
-        with open(time.asctime() + ".csv","w+") as my_csv:
-            csvWriter = csv.writer(my_csv,delimiter=',')
-            csvWriter.writerows(data)
-        print("Bye!")
-        sys.exit()
-    
-    except :
-        ax.requested_state = AXIS_STATE_IDLE
+            # time.sleep(0.01)
 
+        except (KeyboardInterrupt, SystemExit):
+            print("Cleaning...")
+            GPIO.cleanup()
+            ax.requested_state = AXIS_STATE_IDLE
+            with open("data/" + sys.argv[0][:-3] + time.strftime("_%d_%m_%Y_%H:%M:%S") + ".csv","w+") as my_csv:
+                csvWriter = csv.writer(my_csv,delimiter=',')
+                csvWriter.writerows(data)
+            print("Bye!")
+            sys.exit()
+        
+        except :
+            ax.requested_state = AXIS_STATE_IDLE
 
+if __name__ == "__main__" :
+    main()
