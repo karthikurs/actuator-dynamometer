@@ -26,6 +26,9 @@ def main():
     parser.add_argument("-i", "--current",\
         help="enter current limit in Amps (default = 10A)",
         type=float)
+    parser.add_argument("-s", "--speed",\
+        help="enter speed in rev/s (i.e., Hz) (default = 2 Hz)",
+        type=float)
 
     args = parser.parse_args()
 
@@ -45,6 +48,7 @@ def main():
 
     # Calibrate motor and wait for it to finish
     print("odrive found. starting calibration...")
+    ax.motor.config.current_lim = 10.0
     if args.current is not None:
         ax.motor.config.current_lim = args.current
     ax.requested_state = AXIS_STATE_FULL_CALIBRATION_SEQUENCE
@@ -60,7 +64,9 @@ def main():
     #     ax.controller.vel_setpoint,\
     #     ax.motor.current_control.Iq_setpoint,\
     #     val/1000.0])
-    ax.controller.input_vel = 10.0
+    ax.controller.input_vel = 2.0
+    if args.speed is not None:
+        ax.controller.input_vel = args.speed
     t0 = time.monotonic()
     data = []
     data.append(["# Test started at " + time.asctime()])
@@ -93,7 +99,7 @@ def main():
             print("Cleaning...")
             GPIO.cleanup()
             ax.requested_state = AXIS_STATE_IDLE
-            with open("data/" + sys.argv[0][:-3] + time.strftime("_%d_%m_%Y_%H:%M:%S") + ".csv","w+") as my_csv:
+            with open("data/" + sys.argv[0][:-3] + time.strftime("_%d_%m_%Y_%H-%M-%S") + ".csv","w+") as my_csv:
                 csvWriter = csv.writer(my_csv,delimiter=',')
                 csvWriter.writerows(data)
             print("Bye!")
