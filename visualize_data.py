@@ -7,6 +7,7 @@ import matplotlib as mpl
 from matplotlib import pyplot as plt
 from scipy import stats
 
+
 def main() :
     parser = argparse.ArgumentParser(description='Plots data from csv')
     parser.add_argument("filename",\
@@ -15,15 +16,21 @@ def main() :
         help="interactive mode: decide which data to plot of what is present in csv",
         action='store_true')
     parser.add_argument("-o", "--outlier",\
-        help="outlier rejection: ignore rows in the csv for which brake torque data are >3 sigma away",
-        action='store_true')
+        help="outlier rejection: ignore rows in the csv for which brake torque data are in the <arg> extremes of the data: -o 0.05 will drop the top and bottom 5%.",
+        type=float)
 
     args = parser.parse_args()
     
     data = pd.read_csv(args.filename, comment='#', header=0)
 
-    if args.outlier:
-        data = data[(np.abs(stats.zscore(data['brake torque [Nm]'])) < 3)]
+    if args.outlier is not None:
+        # import ipdb; ipdb.set_trace()
+        data = data[data['brake torque [Nm]']\
+            .between(\
+                data['brake torque [Nm]'].quantile(args.outlier),\
+                data['brake torque [Nm]'].quantile(1-args.outlier)\
+                )\
+            ]
 
     if args.interactive:
         print('the following data are available:')
