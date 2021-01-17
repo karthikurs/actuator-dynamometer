@@ -22,9 +22,8 @@ def main() :
     
     data = pd.read_csv(args.filename, comment='#', header=0)
 
-    import ipdb; ipdb.set_trace()
-    # if args.outlier:
-    #     data = data[(np.abs(stats.zscore(data['brake torque [Nm]'])) < 3)]
+    if args.outlier:
+        data = data[(np.abs(stats.zscore(data['brake torque [Nm]'])) < 3)]
 
     if args.interactive:
         print('the following data are available:')
@@ -40,13 +39,14 @@ def main() :
             ax = fig.gca()
             indices = plot_str.split(',')
             xlabel = headers[int(indices[0])]
-            xseries = data[headers[xlabel]]
+            # import ipdb; ipdb.set_trace()
+            xseries = data[xlabel]
             for index in indices[1:]:
                 label = headers[int(index)]
                 series = data[label]
                 ax.plot(xseries, series, label=label)
-            ax.xlabel(xlabel)
-            ax.legend()
+            plt.xlabel(xlabel)
+            plt.legend()
         plt.show()
         return
 
