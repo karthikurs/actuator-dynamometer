@@ -81,9 +81,12 @@ def main():
     if args.comment is not None:
         data.append(["# user comment: " + args.comment])
     data.append(["time [s]","velocity setpoint [Hz]",\
-        "velocity measured [Hz]","motor current [A]",\
+        "velocity measured [Hz]",\
+        "motor current measured [A]",\
+        "motor current setpoint [A]",\
         "load cell weight [g]",\
-        "motor torque [Nm]",\
+        "motor torque measured [Nm]",\
+        "motor torque setpoint [Nm]",\
         "brake torque [Nm]",\
         "compensated brake torque [Nm]"])
     kt = ax.motor.config.torque_constant
@@ -96,8 +99,10 @@ def main():
                 ax.controller.vel_setpoint,\
                 ax.encoder.vel_estimate,\
                 ax.motor.current_control.Iq_measured,\
+                ax.motor.current_control.Iq_setpoint,\
                 -1.0*weight,\
                 ax.motor.current_control.Iq_measured*kt,\
+                ax.motor.current_control.Iq_setpoint*kt,\
                 brake_torque,\
                 brake_torque + np.sign(ax.encoder.vel_estimate)*friction_comp]
             data.append(row)
