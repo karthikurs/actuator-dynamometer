@@ -64,6 +64,8 @@ def main() :
         print('the first index will be taken as the x-axis and the rest will be plotted as separate series')
         while True:
             options = input('\t> ')
+            if options[0] == 'q':
+                return
             plot_strings = options.split(';')
             for plot_str in plot_strings:
                 fig = plt.figure()
