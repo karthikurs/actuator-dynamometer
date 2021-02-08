@@ -51,8 +51,9 @@ def main() :
         data['motor torque setpoint [Nm]'] = np.convolve(data['motor torque setpoint [Nm]'],\
             np.ones(averaging_num_samples)/averaging_num_samples, mode='same')
     
-    data['efficiency from measurement []'] = data['brake torque [Nm]'] / (gear_ratio * data['motor torque measured [Nm]'])
-    data['efficiency from setpoint []'] = data['brake torque [Nm]'] / (gear_ratio * data['motor torque setpoint [Nm]'])
+    if args.filename[0:5] == "speed":
+        data['efficiency from measurement []'] = data['brake torque [Nm]'] / (gear_ratio * data['motor torque measured [Nm]'])
+        data['efficiency from setpoint []'] = data['brake torque [Nm]'] / (gear_ratio * data['motor torque setpoint [Nm]'])
     
     if args.interactive:
         print('the following data series are available:')
