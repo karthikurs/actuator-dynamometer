@@ -86,7 +86,7 @@ def main() :
         return
 
     plt.subplot(111)
-    plt.plot(data['time [s]'], data['motor torque [Nm]'], label='Motor Torque [Nm]')
+    plt.plot(data['time [s]'], data['motor torque measured [Nm]'], label='Motor Torque [Nm]')
     plt.plot(data['time [s]'], data['brake torque [Nm]'], label='Brake Torque [Nm]')
     plt.xlabel('time [s]')
     plt.legend()
@@ -94,7 +94,7 @@ def main() :
 
 
     brake = data['brake torque [Nm]']
-    motor = data['motor torque [Nm]']
+    motor = data['motor torque measured [Nm]']
     print('average brake torque = {}'.format(np.mean(brake[abs(brake) < 1.0])))
     print('average motor torque = {}'.format(np.mean(motor)))
 

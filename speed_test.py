@@ -29,11 +29,18 @@ def main():
     parser.add_argument("-s", "--speed",\
         help="enter speed in rev/s (i.e., Hz) (default = 2 Hz)",
         type=float)
+    parser.add_argument("-d", "--duration",\
+        help="enter duration in seconds",
+        type=float)
     parser.add_argument("-f", "--friction",\
         help="enter torque to compensate for system friction (default = 0.050 Nm)",
         type=float)
+    parser.add_argument("-p", "--profile",\
+        help="enter path to .csv dictating speed profile in <speed (Hz), duration (s)> format.\nOverrides -s command.",
+        type=str)
 
     args = parser.parse_args()
+
 
     hx = HX711(5, 6)
     hx.set_reading_format("MSB", "MSB")
@@ -51,6 +58,13 @@ def main():
 
     # Calibrate motor and wait for it to finish
     print("odrive found. starting calibration...")
+    profile = []
+    if args.duration is not None:
+        profile = pd.DataFrame({'speed':[args.speed],'duration':[args.duration]})
+    if args.profile is not None:
+        profile = pd.read_csv(args.profile, comment='#', header=0)
+    
+    
     ax.motor.config.current_lim = 10.0
     if args.current is not None:
         ax.motor.config.current_lim = args.current
