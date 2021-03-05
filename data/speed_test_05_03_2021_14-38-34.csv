@@ -1,0 +1,4 @@
+# Test started at Fri Mar  5 14:38:31 2021
+# vbus = 0.0 V
+# current limit = 0 A
+time [s],velocity setpoint [Hz],velocity measured [Hz],motor current measured [A],motor current setpoint [A],load cell weight [g],motor torque measured [Nm],motor torque setpoint [Nm],brake torque [Nm],compensated brake torque [Nm]
