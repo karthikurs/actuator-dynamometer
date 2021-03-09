@@ -29,6 +29,9 @@ async def main():
     parser = argparse.ArgumentParser(description='Runs motor velocity controller under current limiting')
     parser.add_argument("controller",\
         help="enter controller being used in {odrive, moteus}")
+    parser.add_argument("-t", "--target",\
+        help="enter target number",\
+        type=int)
     parser.add_argument("-c", "--comment",\
         help="enter comment string to be included in output csv",
         type=str)
@@ -75,16 +78,26 @@ async def main():
         # Calibrate motor and wait for it to finish
         print("odrive found. starting calibration...")
     else:
+        print("bringing up CAN...")
+        os.system("sudo ip link set can0 down")
         os.system("sudo ip link set can0 up type can   tq 25 prop-seg 13 phase-seg1 12 phase-seg2 14 sjw 5   dtq 25 dprop-seg 3 dphase-seg1 1 dphase-seg2 3 dsjw 3   restart-ms 1000 fd on")
         c = moteus.Controller()
         stream = moteus.Stream(c)
-        cal_file = "moteus_testing/moteus_logs/ri50_cal.log"
-        print("loading moteus controller calibration from " + cal_file)
-        cmd = "python3 -m moteus.moteus_tool --target 1 --restore-cal " + cal_file
-        print(cmd)
-        os.system(cmd)
-        cal = json.load(open(cal_file, "r"))
-        kt = 30/(math.pi*cal["kv"])
+        cal_file_1 = "moteus_testing/moteus_logs/ri50_cal_1.log"
+        cal_file_2 = "moteus_testing/moteus_logs/ri50_cal_2.log"
+        print("loading moteus controller calibration from " + cal_file_1 + ", " +cal_file_2 + " ...")
+        cmd1 = "python3 -m moteus.moteus_tool --target 1 --restore-cal " + cal_file_1
+        cmd2 = "python3 -m moteus.moteus_tool --target 2 --restore-cal " + cal_file_2
+        print(cmd1)        
+        os.system(cmd1)
+        print(cmd2)
+        os.system(cmd2)
+        cal1 = json.load(open(cal_file_1, "r"))
+        kt_1 = 30/(math.pi*cal1["kv"])
+        cal2 = json.load(open(cal_file_2, "r")) 
+        kt_2 = 30/(math.pi*cal2["kv"])
+        kt = kt_1
+        kt = kt_2 if args.target==2 else kt
         await c.set_stop()
 
     profile = []
