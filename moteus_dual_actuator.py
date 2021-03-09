@@ -45,14 +45,19 @@ async def main():
     
     await c1.set_stop()
     await c2.set_stop()
+    await c1.set_rezero()
+    await c2.set_rezero()
     
-    pos = 0.5
+    pos = 0.2
     while True:
         try:
-            await c1.set_position(position=pos, watchdog_timeout=1.0, kp_scale=0.1, kd_scale=0.001)
-            await c2.set_position(position=pos, watchdog_timeout=1.0, kp_scale=0.1, kd_scale=0.001)
+            reply1 = (await c1.set_position(position=pos, watchdog_timeout=2.0, kp_scale=0.1, kd_scale=0.5, query=True))
+            reply2 = (await c2.set_position(position=-2*pos, watchdog_timeout=2.0, kp_scale=0.1, kd_scale=0.5, query=True))
             pos = -pos
-            time.sleep(0.5)
+            print(reply1)
+            print(reply2)
+            # break
+            time.sleep(1.5)
         except (KeyboardInterrupt, SystemExit):
             print("stopping actuators and cleaning...")
             await c1.set_stop()
@@ -64,6 +69,14 @@ async def main():
         
         except :
             os.system("sudo ip link set can0 down")
+    
+    print("stopping actuators and cleaning...")
+    await c1.set_stop()
+    await c2.set_stop()
+    await asyncio.sleep(0.2)
+    os.system("sudo ip link set can0 down")
+    print("done")
+    sys.exit()
 
 if __name__ == "__main__" :
     asyncio.run(main())
