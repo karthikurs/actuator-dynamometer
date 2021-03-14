@@ -27,8 +27,8 @@ async def main():
     stream1 = moteus.Stream(c1)
     stream2 = moteus.Stream(c2)
     
-    cal_file_1 = "moteus_testing/moteus_logs/ri50_cal_1.log"
-    cal_file_2 = "moteus_testing/moteus_logs/ri50_cal_2.log"
+    cal_file_1 = "moteus-setup/moteus-cal/ri50_cal_1.log"
+    cal_file_2 = "moteus-setup/moteus-cal/ri50_cal_2.log"
     
     print("loading moteus controller calibration from " + cal_file_1 + ", " +cal_file_2 + " ...")
     cmd1 = "python3 -m moteus.moteus_tool --target 1 --restore-cal " + cal_file_1
@@ -47,12 +47,14 @@ async def main():
     await c2.set_stop()
     await c1.set_rezero()
     await c2.set_rezero()
+    kp = 0.3
+    kd = 0.5
     
-    pos = 0.2
+    pos = 0.0
     while True:
         try:
-            reply1 = (await c1.set_position(position=pos, watchdog_timeout=2.0, kp_scale=0.1, kd_scale=0.5, query=True))
-            reply2 = (await c2.set_position(position=-2*pos, watchdog_timeout=2.0, kp_scale=0.1, kd_scale=0.5, query=True))
+            reply1 = (await c1.set_position(position=pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
+            reply2 = (await c2.set_position(position=-2*pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
             pos = -pos
             print(reply1)
             print(reply2)
