@@ -2,11 +2,13 @@
 
 import numpy as np
 from numpy import sin, cos
+from numpy import linalg as LA
+from numpy import linspace
 # expm is a matrix exponential function
 from scipy.linalg import expm
 from copy import deepcopy
 import matplotlib as mpl
-from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
 import matplotlib.pyplot as plt
 
 # mm
@@ -34,6 +36,9 @@ def clamp(angle):
     while angle <= -np.pi:
         angle += 2 * np.pi
     return angle
+
+def rss(x, y):
+    return np.sqrt(x*x + y*y)
 
 class Kinematics:
     def __init__(self, l1_in=125, l2_pll_in=25, l2_perp_in=140, l3_pll_in=20, l3_perp_in=120):
@@ -109,10 +114,8 @@ class Kinematics:
         # a1 = -0.5*np.pi - theta1 - self.gamma1
         # a2 = -0.5*np.pi - theta2 + self.gamma2 + self.gamma1
         a1, a2 = self.theta2alpha(theta1, theta2)
-        return -1*self.jacobian_alpha(a1, a2)
+        return -self.jacobian_alpha(a1, a2)
 
-def rss(x, y):
-    return np.sqrt(x*x + y*y)
 
 def main():
     kin = Kinematics()
@@ -120,29 +123,80 @@ def main():
     theta2 = 0.2*np.pi
     a1, a2 = kin.theta2alpha(theta1, theta2)
 
-    # print(np.array([theta1, theta2]))
+    # print(np.array([thetfrom numpy import linspacea1, theta2]))
+    x0 = 0
+    y0 = 0
 
-    vec_pts = kin.fk_vec(theta1, theta2)
-    link_pts = kin.fk_2link(theta1, theta2)
-    x = vec_pts[-1, 0]
-    y = vec_pts[-1, 1]
-    ik_soln = kin.ik_2link(x, y)
-    link_pts2 = kin.fk_2link(ik_soln[0], ik_soln[1])
-    print(ik_soln)
-    # print([x,y])
     fig, ax = plt.subplots()
 
-    ax.plot(vec_pts[:,0], vec_pts[:,1], 'bo-')
-    ax.plot(link_pts[:,0], link_pts[:,1], 'ro-')
-    ax.plot(link_pts2[:,0], link_pts2[:,1], 'go-')
-    plt.title('theta={},     alpha={},\nfoot={},     ik_soln={}'.format(\
-        [round(e,2) for e in [theta1, theta2]],\
-        [round(e,2) for e in [a1,a2]],\
-        [round(e,2) for e in [x,y]],\
-        [round(e,2) for e in ik_soln]))
+    start = 0.0
+    stop = 1.0
+    number_of_lines= 30
+    cm_subsection = linspace(start, stop, number_of_lines) 
+    colors = [ cm.viridis(x) for x in cm_subsection ]
 
-    x_left, x_right = ax.get_xlim()
-    y_low, y_high = ax.get_ylim()
+    for ii in range(20):
+        vec_pts = kin.fk_vec(theta1, theta2)
+        link_pts = kin.fk_2link(theta1, theta2)
+        x = vec_pts[-1, 0]
+        y = vec_pts[-1, 1]
+        if ii==0:
+            x0 = x
+            y0 = y
+        ik_soln = kin.ik_2link(x, y)
+        link_pts2 = kin.fk_2link(ik_soln[0], ik_soln[1])
+
+        ax.plot(vec_pts[:,0], vec_pts[:,1], 'o-',color=colors[ii])
+        # ax.plot(link_pts[:,0], link_pts[:,1], 'ro-')
+        # ax.plot(link_pts2[:,0], link_pts2[:,1], 'go-')
+        plt.title('theta={},     alpha={},\nfoot={},     ik_soln={}'.format(\
+            [round(e,2) for e in [theta1, theta2]],\
+            [round(e,2) for e in [a1,a2]],\
+            [round(e,2) for e in [x,y]],\
+            [round(e,2) for e in ik_soln]))
+
+        dx = (x0+ii*10 + 10) - x
+        dy = y0 - y
+        J = kin.jacobian_theta(theta1, theta2)
+        Jinv = LA.inv(J)
+        dt = np.matmul(Jinv, np.array([[dx],[dy]]))
+        dt1 = dt[0,0]
+        dt2 = dt[1,0]
+
+        theta1 += dt1
+        theta2 += dt2
+    
+    for ii in range(10):
+        vec_pts = kin.fk_vec(theta1, theta2)
+        link_pts = kin.fk_2link(theta1, theta2)
+        x = vec_pts[-1, 0]
+        y = vec_pts[-1, 1]
+        if ii==0:
+            x0 = x
+            y0 = y
+        ik_soln = kin.ik_2link(x, y)
+        link_pts2 = kin.fk_2link(ik_soln[0], ik_soln[1])
+
+        ax.plot(vec_pts[:,0], vec_pts[:,1], 'o-',color=colors[ii+20])
+        # ax.plot(link_pts[:,0], link_pts[:,1], 'ro-')
+        # ax.plot(link_pts2[:,0], link_pts2[:,1], 'go-')
+        plt.title('theta={},     alpha={},\nfoot={},     ik_soln={}'.format(\
+            [round(e,2) for e in [theta1, theta2]],\
+            [round(e,2) for e in [a1,a2]],\
+            [round(e,2) for e in [x,y]],\
+            [round(e,2) for e in ik_soln]))
+
+        dx = x0 - x
+        dy = (y0+ii*10 + 10) - y
+        J = kin.jacobian_theta(theta1, theta2)
+        Jinv = LA.inv(J)
+        dt = np.matmul(Jinv, np.array([[dx],[dy]]))
+        dt1 = dt[0,0]
+        dt2 = dt[1,0]
+
+        theta1 += dt1
+        theta2 += dt2
+
     ax.set_aspect(1)
 
     plt.show()
