@@ -1,8 +1,5 @@
 #!/usr/bin/env python3
 
-# Based on example.py from https://github.com/tatobari/hx711py
-# and https://github.com/odriverobotics/ODrive/blob/master/tools/odrive_demo.py
-
 from __future__ import print_function
 
 import moteus
@@ -50,14 +47,17 @@ async def main():
     kp = 0.3
     kd = 0.5
     
-    pos = 0.0
+    pos = 0.01
     while True:
         try:
-            reply1 = (await c1.set_position(position=pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
-            reply2 = (await c2.set_position(position=-2*pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
+            # reply1 = (await c1.set_position(position=pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
+            # reply2 = (await c2.set_position(position=-2*pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
+            reply1 = (await c1.set_current(q_A=pos, d_A=0.0, watchdog_timeout=2.0, query=True))
+            reply2 = (await c2.set_current(q_A=pos, d_A=0.0, watchdog_timeout=2.0, query=True))
             pos = -pos
             print(reply1)
             print(reply2)
+            # print(reply1.values[1])
             # break
             time.sleep(1.5)
         except (KeyboardInterrupt, SystemExit):
