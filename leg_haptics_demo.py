@@ -35,7 +35,7 @@ async def main():
 
     [x0,y0] = [x+20,y-10]
 
-    k = 0.2
+    k = 0.5
 
     while True:
         try:
