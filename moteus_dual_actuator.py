@@ -47,7 +47,7 @@ async def main():
     kp = 0.3
     kd = 0.5
     
-    pos = 0.5
+    pos = 0.2
     while True:
         try:
             # reply1 = (await c1.set_position(position=pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
@@ -71,6 +71,9 @@ async def main():
         
         except :
             os.system("sudo ip link set can0 down")
+            print("something went wrong")
+            raise
+            sys.exit()
     
     print("stopping actuators and cleaning...")
     await c1.set_stop()

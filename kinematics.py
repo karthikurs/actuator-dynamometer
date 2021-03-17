@@ -123,6 +123,8 @@ def main():
     theta2 = 0.2*np.pi
     a1, a2 = kin.theta2alpha(theta1, theta2)
 
+    print(kin.fk_vec(-0.15*np.pi/3, -1.05*np.pi/3))
+
     # print(np.array([thetfrom numpy import linspacea1, theta2]))
     x0 = 0
     y0 = 0

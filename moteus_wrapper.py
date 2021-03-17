@@ -5,6 +5,7 @@ from __future__ import print_function
 import moteus
 import moteus.moteus_tool as mt
 
+import numpy as np
 import asyncio
 import sys
 import os
@@ -35,15 +36,15 @@ async def init_controllers():
     print(cmd2)
     os.system(cmd2)
     
-    # cal1 = json.load(open(cal_file_1, "r"))
-    # kt_1 = 30/(math.pi*cal1["kv"])
-    # cal2 = json.load(open(cal_file_2, "r")) 
-    # kt_2 = 30/(math.pi*cal2["kv"])
+    cal1 = json.load(open(cal_file_1, "r"))
+    kt_1 = 30/(np.pi*cal1["kv"])
+    cal2 = json.load(open(cal_file_2, "r")) 
+    kt_2 = 30/(np.pi*cal2["kv"])
     
     await c1.set_stop()
     await c2.set_stop()
 
-    return c1, c2
+    return c1, c2, kt_1, kt_2
 
 def parse_reply(reply):
     pos = reply.values[1]
