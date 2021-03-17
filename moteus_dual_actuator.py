@@ -47,13 +47,13 @@ async def main():
     kp = 0.3
     kd = 0.5
     
-    pos = 0.01
+    pos = 0.5
     while True:
         try:
             # reply1 = (await c1.set_position(position=pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
             # reply2 = (await c2.set_position(position=-2*pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
-            reply1 = (await c1.set_current(q_A=pos, d_A=0.0, watchdog_timeout=2.0, query=True))
-            reply2 = (await c2.set_current(q_A=pos, d_A=0.0, watchdog_timeout=2.0, query=True))
+            reply1 = (await c1.set_current(q_A=pos, d_A=0.0, query=True))
+            reply2 = (await c2.set_current(q_A=pos, d_A=0.0, query=True))
             pos = -pos
             print(reply1)
             print(reply2)
