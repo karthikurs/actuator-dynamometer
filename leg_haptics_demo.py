@@ -34,7 +34,7 @@ async def main():
     [x,y] = kin.fk_vec(p1,p2)[-1]
 
     [x0,y0] = [x+20,y-10]
-
+ 
     k = 0.5
 
     while True:

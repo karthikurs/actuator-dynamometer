@@ -14,6 +14,9 @@ import json
 import time
 import math
 
+import Adafruit_ADS1x15
+
+
 async def main():
     print("bringing up CAN...")
     os.system("sudo ip link set can0 down")
@@ -46,19 +49,33 @@ async def main():
     await c2.set_rezero()
     kp = 0.3
     kd = 0.5
+
+    adc = Adafruit_ADS1x15.ADS1115()
+    GAIN = 2.0/3.0
     
-    pos = 0.2
+    t0 = time.monotonic()
+    data = []
+    data.append(["# Test started at " + time.asctime()])
+    
+    pos = 0.5
     while True:
         try:
             # reply1 = (await c1.set_position(position=pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
             # reply2 = (await c2.set_position(position=-2*pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
             reply1 = (await c1.set_current(q_A=pos, d_A=0.0, query=True))
-            reply2 = (await c2.set_current(q_A=pos, d_A=0.0, query=True))
+            reply2 = (await c2.set_current(q_A=0.0, d_A=0.0, query=True))
             pos = -pos
+
             print(reply1)
             print(reply2)
+
+            value = adc.read_adc(1, gain=GAIN)
+            value = round(6.144*(2.0*value/(65536)), 3)
+            row = [time.monotonic() - t0] + [val for key, val in reply1.values.items()] + [value]
+            print(value)
             # print(reply1.values[1])
             # break
+            data.append(row)
             time.sleep(1.5)
         except (KeyboardInterrupt, SystemExit):
             print("stopping actuators and cleaning...")
@@ -66,6 +83,11 @@ async def main():
             await c2.set_stop()
             await asyncio.sleep(0.2)
             os.system("sudo ip link set can0 down")
+
+            with open("futek_data/futek_test_" + time.strftime("_%d_%m_%Y_%H-%M-%S") + ".csv","w+") as my_csv:
+                csvWriter = csv.writer(my_csv,delimiter=',')
+                csvWriter.writerows(data)
+
             print("done")
             sys.exit()
         
@@ -73,6 +95,9 @@ async def main():
             os.system("sudo ip link set can0 down")
             print("something went wrong")
             raise
+            with open("data/futek_test_" + time.strftime("_%d_%m_%Y_%H-%M-%S") + ".csv","w+") as my_csv:
+                csvWriter = csv.writer(my_csv,delimiter=',')
+                csvWriter.writerows(data)
             sys.exit()
     
     print("stopping actuators and cleaning...")
