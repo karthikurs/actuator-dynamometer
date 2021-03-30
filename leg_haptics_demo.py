@@ -50,8 +50,8 @@ async def main():
             # print('fx={} fy={} t1={} t2={}'.format(fx, fy, t1, t2))
             p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1/kt_1, d_A=0.0, query=True))
             p2, v2, t2 = parse_reply(await c2.set_current(q_A=t2/kt_2, d_A=0.0, query=True))
-            # print('p1={},v1={},t1={}'.format(p1, v1, t1))
-            # print('p2={},v2={},t2={}'.format(p2, v2, t2))
+            print('p1={},v1={},t1={}'.format(p1, v1, t1))
+            print('p2={},v2={},t2={}'.format(p2, v2, t2))
             [x,y] = kin.fk_vec(p1,p2)[-1]
             time.sleep(0.005)
         except (KeyboardInterrupt, SystemExit):

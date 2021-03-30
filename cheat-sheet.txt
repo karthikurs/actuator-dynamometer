@@ -1,0 +1,7 @@
+bring up can:
+
+sudo sh moteus/can_up.sh
+
+bring down can:
+
+sudo ip link set can0 down
