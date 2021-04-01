@@ -79,9 +79,10 @@ def main() :
                 for index in indices[1:]:
                     label = headers[int(index)]
                     series = data[label]
+                    ratio = 1
                     if label.find("torque") > -1 and (label.find("c1") > -1 or label.find("c2") > -1):
-                        series *= gear_ratio
-                    ax.plot(xseries, series, label=label)
+                        ratio = gear_ratio
+                    ax.plot(xseries, ratio*series, label=label)
                 plt.xlabel(xlabel)
                 plt.legend()
                 plt.title(args.filename)

@@ -77,7 +77,7 @@ async def main():
             reply1 = (await c1.set_current(q_A=cmd, d_A=0.0, query=True))
             # reply2 = (await c2.set_current(q_A=0.0, d_A=0.0, query=True))
             reply2 = (await c2.set_position(position=math.nan, velocity=0.0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=0.05, query=True))
+                watchdog_timeout=2.0, kp_scale=0, kd_scale=0.3, query=True))
             pos = -pos
 
             # print(reply1)
