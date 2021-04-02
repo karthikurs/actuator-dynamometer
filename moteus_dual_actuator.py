@@ -52,6 +52,10 @@ async def main():
 
     adc = Adafruit_ADS1x15.ADS1115()
     GAIN = 2.0/3.0
+
+    zero_val = adc.read_adc(1, gain=GAIN)
+    zero_val = round(6.144*(2.0*zero_val/(65536)), 6)
+    print(zero_val)
     
     t0 = time.monotonic()
     data = []
@@ -73,11 +77,11 @@ async def main():
             # reply2 = (await c2.set_position(position=-2*pos, watchdog_timeout=2.0, kp_scale=kp, kd_scale=kd, query=True))
             t = time.monotonic() - t0
             # cmd = 4.0*math.sin(t)
-            cmd = min(0.5*t, 6)
+            cmd = min(0.5*t, 10)
             reply1 = (await c1.set_current(q_A=cmd, d_A=0.0, query=True))
             # reply2 = (await c2.set_current(q_A=0.0, d_A=0.0, query=True))
             reply2 = (await c2.set_position(position=math.nan, velocity=0.0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=0.3, query=True))
+                watchdog_timeout=2.0, kp_scale=0, kd_scale=3.0, query=True))
             pos = -pos
 
             # print(reply1)
@@ -85,7 +89,7 @@ async def main():
 
             futek_torque = adc.read_adc(1, gain=GAIN)
             futek_torque = round(6.144*(2.0*futek_torque/(65536)), 6)
-            futek_torque = -2.0*(futek_torque-2.485) * 18.0/5.0
+            futek_torque = -2.0*(futek_torque-zero_val) * 18.0/5.0
             row = [t] + [cmd*kt_1] + [val for key, val in reply1.values.items()] + [val for key, val in reply2.values.items()] + [futek_torque]
             # print(futek_torque)
             # print(reply1.values[1])
@@ -108,12 +112,19 @@ async def main():
             sys.exit()
         
         except :
-            os.system("sudo ip link set can0 down")
             print("something went wrong")
-            raise
-            with open("data/futek_test_" + time.strftime("_%d_%m_%Y_%H-%M-%S") + ".csv","w+") as my_csv:
+            print("stopping actuators and cleaning...")
+            with open("futek_data/futek_test_" + time.strftime("_%d_%m_%Y_%H-%M-%S") + ".csv","w+") as my_csv:
                 csvWriter = csv.writer(my_csv,delimiter=',')
                 csvWriter.writerows(data)
+            
+            await asyncio.sleep(0.1)
+            await c1.set_stop()
+            await c2.set_stop()
+            await asyncio.sleep(0.1)
+            os.system("sudo ip link set can0 down")
+
+            print("done")
             sys.exit()
     
     print("stopping actuators and cleaning...")
