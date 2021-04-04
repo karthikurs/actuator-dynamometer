@@ -15,6 +15,13 @@ import json
 import time
 import math
 
+async def e_stop():
+    os.system("sudo ip link set can0 up type can   tq 25 prop-seg 13 phase-seg1 12 phase-seg2 14 sjw 5   dtq 25 dprop-seg 3 dphase-seg1 1 dphase-seg2 3 dsjw 3   restart-ms 1000 fd on")
+    c1 = moteus.Controller(id=1)
+    c2 = moteus.Controller(id=2)
+    await c1.set_stop()
+    await c2.set_stop()
+
 async def init_controllers():
     print("bringing up CAN...")
     os.system("sudo ip link set can0 down")
@@ -50,4 +57,14 @@ def parse_reply(reply):
     pos = reply.values[1]
     vel = reply.values[2]
     trq = reply.values[3]
-    return pos*np.pi/3, vel*np.pi/3, trq
+    return pos*np.pi/3, vel*np.pi/3, trq*6
+
+def raw_reply_list(reply):
+    data = [val for key, val in reply.values.items()]
+    return data
+
+def raw_reply_headers():
+    headers = ["mode", "position [rev]", "vel [Hz]",\
+                "torque [Nm]", "voltage [V]",\
+                "temp [C]", "fault"]
+    return headers
