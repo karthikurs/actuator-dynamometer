@@ -56,7 +56,7 @@ async def main():
     data.append(["# \t c2 = moteus controller 2. Values at *motor* level (no gearbox)"])
     data.append(["# Note: Data assumes gearbox is 100pc efficient"])
     data.append(["# "])
-    data.append(["# kt_1 = {}, kt_2 = {}".format(kt_1, kt_2)])
+    data.append(['# kt_1 = {}, kt_2 = {}'.format(kt_1, kt_2)])
     if args.comment is not None:
         data.append(["# User comment: " + args.comment])
 
@@ -78,12 +78,12 @@ async def main():
             t = time.monotonic() - t0
             
             # cmd = 4.0*math.sin(t)
-            cmd = min(0.5*t, 10)
+            cmd = min(0.5*t, 8)//1.0
 
             reply1 = (await c1.set_current(q_A=cmd, d_A=0.0, query=True))
             # reply2 = (await c2.set_current(q_A=0.0, d_A=0.0, query=True))
             reply2 = (await c2.set_position(position=math.nan, velocity=0.0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=3.0, query=True))
+                watchdog_timeout=2.0, kp_scale=0, kd_scale=1.5, query=True))
 
             p1, v1, t1 = parse_reply(reply1)
             p2, v2, t2 = parse_reply(reply2)
@@ -106,7 +106,8 @@ async def main():
             os.system("sudo ip link set can0 down")
 
             print("done")
-            sys.exit()
+            # sys.exit()
+            return
         except:
             print("something went wrong")
             print("stopping actuators and cleaning...")
@@ -121,7 +122,8 @@ async def main():
             os.system("sudo ip link set can0 down")
 
             print("done")
-            sys.exit()
+            # sys.exit()
+            return
 
 if __name__ == "__main__" :
     asyncio.run(main())
