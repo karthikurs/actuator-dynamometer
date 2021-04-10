@@ -23,6 +23,20 @@ from kinematics import *
 
 import Adafruit_ADS1x15
 
+def adc2temp(temp):
+    R0 = 100000
+    T0 = 25
+
+    Rf = 100000
+    V0 = 5
+
+    Vt = round(6.144*(2.0*temp/(65536)), 6)
+
+    Rt = Rf*Vt / (V0 - Vt)
+
+    temp = (1/298.15) + (1/3950)*math.log(Rt/R0)
+    return 1/temp - 273.15
+
 
 async def main():
     parser = argparse.ArgumentParser(description='Runs dual-actuator moteus controller futek dynamometer setup')
@@ -71,19 +85,20 @@ async def main():
                 "c2 mode", "c2 position [rev]", "c2 vel [Hz]",\
                 "c2 torque [Nm]", "c2 voltage [V]",\
                 "c2 temp [C]", "c2 fault",\
-                "trd605 torque [Nm]"])
+                "trd605 torque [Nm]",
+                "temp 1 [C]", "temp2 [C]"])
 
     while True:
         try:
             t = time.monotonic() - t0
             
             # cmd = 4.0*math.sin(t)
-            cmd = min(0.5*t, 8)//1.0
+            cmd = min(0.5*t, 8.0)//1.0
 
             reply1 = (await c1.set_current(q_A=cmd, d_A=0.0, query=True))
             # reply2 = (await c2.set_current(q_A=0.0, d_A=0.0, query=True))
             reply2 = (await c2.set_position(position=math.nan, velocity=0.0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=1.5, query=True))
+                watchdog_timeout=2.0, kp_scale=0, kd_scale=0.5, query=True))
 
             p1, v1, t1 = parse_reply(reply1)
             p2, v2, t2 = parse_reply(reply2)
@@ -91,7 +106,14 @@ async def main():
             futek_torque = adc.read_adc(1, gain=GAIN)
             futek_torque = round(6.144*(2.0*futek_torque/(65536)), 6)
             futek_torque = -2.0*(futek_torque-zero_val) * 18.0/5.0
-            row = [t] + [cmd] + [cmd*kt_1*6] + [p1, v1, t1, p2, v2, t2] + raw_reply_list(reply1) + raw_reply_list(reply2) + [futek_torque]
+
+            temp1 = adc.read_adc(2, gain=GAIN); temp1 = adc2temp(temp1)
+            temp2 = adc.read_adc(3, gain=GAIN); temp2 = adc2temp(temp2)
+
+            row = [t] + [cmd] + [cmd*kt_1*6] +\
+                [p1, v1, t1, p2, v2, t2]\
+                + raw_reply_list(reply1) + raw_reply_list(reply2) +\
+                [futek_torque, temp1, temp2]
             data.append(row)
         except (KeyboardInterrupt, SystemExit):
             print("stopping actuators and cleaning...")

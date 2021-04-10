@@ -3,10 +3,24 @@
 # Author: Tony DiCola
 # License: Public Domain
 import time
+import math
 
 # Import the ADS1x15 module.
 import Adafruit_ADS1x15
 
+def adc2temp(temp):
+    R0 = 100000
+    T0 = 25
+
+    Rf = 100000
+    V0 = 5
+
+    Vt = round(6.144*(2.0*temp/(65536)), 6)
+
+    Rt = Rf*Vt / (V0 - Vt)
+
+    temp = (1/298.15) + (1/3950)*math.log(Rt/R0)
+    return 1/temp - 273.15
 
 # Create an ADS1115 ADC (16-bit) instance.
 adc = Adafruit_ADS1x15.ADS1115()
@@ -41,6 +55,8 @@ while True:
         # Read the specified ADC channel using the previously set gain value.
         values[i] = adc.read_adc(i, gain=GAIN)
         values[i] = round(6.144*(2.0*values[i]/(65536)), 3)
+        # values[i] = adc2temp(values[i])
+
         # Note you can also pass in an optional data_rate parameter that controls
         # the ADC conversion time (in samples/second). Each chip has a different
         # set of allowed data rate values, see datasheet Table 9 config register
