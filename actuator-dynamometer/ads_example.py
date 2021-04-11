@@ -54,8 +54,8 @@ while True:
     for i in range(4):
         # Read the specified ADC channel using the previously set gain value.
         values[i] = adc.read_adc(i, gain=GAIN)
-        values[i] = round(6.144*(2.0*values[i]/(65536)), 3)
-        # values[i] = adc2temp(values[i])
+        # values[i] = round(6.144*(2.0*values[i]/(65536)), 3)
+        values[i] = adc2temp(values[i])
 
         # Note you can also pass in an optional data_rate parameter that controls
         # the ADC conversion time (in samples/second). Each chip has a different
