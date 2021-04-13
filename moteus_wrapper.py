@@ -53,11 +53,11 @@ async def init_controllers():
 
     return c1, c2, kt_1, kt_2
 
-def parse_reply(reply):
+def parse_reply(reply, g):
     pos = reply.values[1]
     vel = reply.values[2]
     trq = reply.values[3]
-    return pos*np.pi/3, vel*np.pi/3, trq*6
+    return pos*np.pi*2/g, vel*np.pi*2/g, trq*g
 
 def raw_reply_list(reply):
     data = [val for key, val in reply.values.items()]
