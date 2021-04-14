@@ -121,10 +121,11 @@ async def main():
     cmd = 0.0
     temp1 = adc.read_adc(2, gain=GAIN); temp1 = adc2temp(temp1)
     temp2 = adc.read_adc(3, gain=GAIN); temp2 = adc2temp(temp2)
-
+    t0_fcn = t0
     while True:
         try:
             t = time.monotonic() - t0
+            t_fcn = time.monotonic() - t0_fcn
             
             # cmd = 4.0*math.sin(t)
             max_cmd = 7.5 # A
@@ -142,7 +143,7 @@ async def main():
 
             if min(temp1, temp2) < 30 and max(temp1, temp2) < 70 and overtemp:
                 overtemp = False
-                t0 = time.monotonic()
+                t0_fcn = time.monotonic()
 
             if cmd != old_cmd:
                 print("cmd = {} A".format(cmd))
