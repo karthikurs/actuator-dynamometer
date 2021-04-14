@@ -116,20 +116,41 @@ async def main():
                 "temp 1 [C]", "temp 2 [C]",\
                 "observed torque constant [Nm/A]"])
 
+    overtemp = False
+    old_cmd = 0.0
+    cmd = 0.0
+    temp1 = adc.read_adc(2, gain=GAIN); temp1 = adc2temp(temp1)
+    temp2 = adc.read_adc(3, gain=GAIN); temp2 = adc2temp(temp2)
+
     while True:
         try:
             t = time.monotonic() - t0
             
             # cmd = 4.0*math.sin(t)
-            max_cmd = 4.0 # A
+            max_cmd = 7.5 # A
             rate = 0.25 # A/s
             incr = 0.5 # A
+            old_cmd = cmd
             cmd = incr*(min(rate*t, max_cmd)//incr)
+
+            if min(temp1, temp2) > 35 or max(temp1, temp2) > 80 or overtemp:
+                print("over temp: temp1 = {}, temp2 = {}".format(temp1, temp2))
+                # await finish(c1,c2,data)
+                # return
+                overtemp = True
+                cmd = 0.0
+
+            if min(temp1, temp2) < 30 and max(temp1, temp2) < 70 and overtemp:
+                overtemp = False
+                t0 = time.monotonic()
+
+            if cmd != old_cmd:
+                print("cmd = {} A".format(cmd))
 
             reply1 = (await c1.set_current(q_A=cmd, d_A=0.0, query=True))
             # reply2 = (await c2.set_current(q_A=0.0, d_A=0.0, query=True))
             reply2 = (await c2.set_position(position=math.nan, velocity=0.0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=0.05, query=True))
+                watchdog_timeout=2.0, kp_scale=0, kd_scale=0.5, query=True))
 
             p1, v1, t1 = parse_reply(reply1, g1)
             p2, v2, t2 = parse_reply(reply2, g2)
@@ -148,9 +169,6 @@ async def main():
                 + raw_reply_list(reply1) + raw_reply_list(reply2) +\
                 [futek_torque, temp1, temp2, observed_kt]
             data.append(row)
-            if min(temp1, temp2) > 35:
-                print("over temp: temp1 = {}, temp2 = {}".format(temp1, temp2))
-                return
         except (KeyboardInterrupt, SystemExit):
             await finish(c1, c2, data)
             # sys.exit()
