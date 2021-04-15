@@ -62,7 +62,7 @@ def main() :
         headers = data.columns.values
         for i in range(num_cols) :
             print('\t{}:\t'.format(i) + headers[i])
-        print('enter which data you would like to plot by their indices separated by commas')
+        print('enter which data you would like to plot by their indices separated by pipes \'|\'')
         print('the first index will be taken as the x-axis and the rest will be plotted as separate series')
         while True:
             options = input('\t> ')
@@ -72,7 +72,7 @@ def main() :
             for plot_str in plot_strings:
                 fig = plt.figure()
                 ax = fig.gca()
-                indices = plot_str.split(',')
+                indices = plot_str.split('|')
                 xlabel = headers[int(indices[0])]
                 # import ipdb; ipdb.set_trace()
                 xseries = data[xlabel]
