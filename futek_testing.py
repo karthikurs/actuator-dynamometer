@@ -37,20 +37,21 @@ def adc2temp(temp):
     temp = (1/298.15) + (1/3950)*math.log(Rt/R0)
     return 1/temp - 273.15
 
-async def finish(c1, c2, data):
-    print("writing data...")
-    with open("futek_data/futek_test" + time.strftime("_%d_%m_%Y_%H-%M-%S") + ".csv","w+") as my_csv:
-        csvWriter = csv.writer(my_csv,delimiter=',')
-        csvWriter.writerows(data)
+async def finish(c1, c2, data=None):
+    if data is not None:
+        print("\nwriting data...")
+        with open("futek_data/futek_test" + time.strftime("_%d_%m_%Y_%H-%M-%S") + ".csv","w+") as my_csv:
+            csvWriter = csv.writer(my_csv,delimiter=',')
+            csvWriter.writerows(data)
     
-    print("stopping actuators and cleaning...")
+    print("\nstopping actuators and cleaning...")
     await asyncio.sleep(0.1)
     await c1.set_stop()
     await c2.set_stop()
     await asyncio.sleep(0.1)
     os.system("sudo ip link set can0 down")
 
-    print("done")
+    print("\ndone\n\n")
 
 async def main():
     parser = argparse.ArgumentParser(description='Runs dual-actuator moteus controller futek dynamometer setup')
@@ -78,20 +79,40 @@ async def main():
     g1 = args.gear1 if args.gear1 is not None else 1.0
     g2 = args.gear2 if args.gear2 is not None else 6.0
     step_mag = args.step if args.step is not None else 0.0 
-    damping = args.damping if args.damping is not None else 0.05 
+    damping = args.damping if args.damping is not None else 0.1 
     
     c1, c2, kt_1, kt_2 = await init_controllers()
 
-    p1, v1, t1 = parse_reply(await c1.set_stop(query=True), g1)
-    p2, v2, t2 = parse_reply(await c2.set_stop(query=True), g2)
+    n = 100
+    # tstart = time.monotonic()
+
+    # for _ in range(n):
+    #     # p1, v1, t1 = parse_reply(await c1.set_stop(query=True), g1)
+    #     # p2, v2, t2 = parse_reply(await c2.set_stop(query=True), g2)
+    #     await c1._get_transport().cycle([c.make_stop(query=True) for c in [c1, c2]])
+    # tend = time.monotonic()
+    # print("cycle command avg time: {}".format((tend-tstart)/n))
+    
+
     await c1.set_rezero()
     await c2.set_rezero()
 
     adc = Adafruit_ADS1x15.ADS1115()
     GAIN = 2.0/3.0
+    DATARATE = 860
 
-    zero_val = adc.read_adc(1, gain=GAIN)
+    zero_val = adc.read_adc(1, gain=GAIN, data_rate=DATARATE)
     zero_val = round(6.144*(2.0*zero_val/(65536)), 6)
+    
+    # tstart = time.monotonic()
+    # for _ in range(n):
+    #     v = adc.read_adc(1, gain=GAIN, data_rate=DATARATE)
+    # tend = time.monotonic()
+    # print("adc read avg time: {}".format((tend-tstart)/n))
+
+    # await finish(c1, c2)
+    # return
+
     print(zero_val)
     
     t0 = time.monotonic()
@@ -127,8 +148,8 @@ async def main():
     overtemp = False
     old_cmd = 0.0
     cmd = 0.0
-    temp1 = adc.read_adc(2, gain=GAIN); temp1 = adc2temp(temp1)
-    temp2 = adc.read_adc(3, gain=GAIN); temp2 = adc2temp(temp2)
+    temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
+    temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
     t0_fcn = t0
     while True:
         try:
@@ -141,25 +162,29 @@ async def main():
                 return
             
             # cmd = 4.0*math.sin(t)
-            max_cmd = 7.5 # A
-            rate = 0.25 # A/s
+            max_cmd = 7.0 # A
+            rate = 0.5 # A/s
             incr = 0.5 # A
             old_cmd = cmd
             if args.step is not None: cmd = step_mag if t > 0.0 else 0.0
-            else: cmd = incr*(min(rate*t, max_cmd)//incr)
+            else:
+                cmd = incr*(min(rate*(t%20), max_cmd)//incr)
+                # cmd = max_cmd*math.sin(5*t)
+            
+            # if (t//2.0) % 2 > 0: cmd = 0
 
-            if min(temp1, temp2) > 35 or max(temp1, temp2) > 80 or overtemp:
-                print("over temp: temp1 = {.2f}, temp2 = {.2f}".format(round(temp1, 2), round(temp2, 2)))
+            if min(temp1, temp2) > 40 or max(temp1, temp2) > 80 or overtemp:
+                print("over temp: temp1 = {}, temp2 = {}".format(round(temp1, 2), round(temp2, 2)))
                 # await finish(c1,c2,data)
                 # return
                 overtemp = True
                 cmd = 0.0
 
-            if min(temp1, temp2) < 30 and max(temp1, temp2) < 70 and overtemp:
+            if min(temp1, temp2) < 35 and max(temp1, temp2) < 70 and overtemp:
                 overtemp = False
                 t0_fcn = time.monotonic()
 
-            if cmd != old_cmd: print("cmd = {} A".format(cmd))
+            # if cmd != old_cmd: print("cmd = {} A".format(cmd))
 
             reply1 = (await c1.set_current(q_A=cmd, d_A=0.0, query=True))
             # reply2 = (await c2.set_current(q_A=0.0, d_A=0.0, query=True))
@@ -169,14 +194,14 @@ async def main():
             p1, v1, t1 = parse_reply(reply1, g1)
             p2, v2, t2 = parse_reply(reply2, g2)
 
-            futek_torque = adc.read_adc(1, gain=GAIN)
+            futek_torque = adc.read_adc(1, gain=GAIN, data_rate=DATARATE)
             futek_torque = round(6.144*(2.0*futek_torque/(65536)), 6)
             futek_torque = -2.0*(futek_torque-zero_val) * 18.0/5.0
 
-            temp1 = adc.read_adc(2, gain=GAIN); temp1 = adc2temp(temp1)
-            temp2 = adc.read_adc(3, gain=GAIN); temp2 = adc2temp(temp2)
+            temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
+            temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
 
-            if t % 1.0 < 0.04: print("temp1 = {}, temp2 = {}".format(round(temp1, 2), round(temp2, 2)))
+            if t % 1.0 < 0.012: print("t = {}s, temp1 = {}, temp2 = {}".format(round(t, 3), round(temp1, 2), round(temp2, 2)))
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
@@ -190,8 +215,9 @@ async def main():
             # sys.exit()
             return
         except:
-            print("something went wrong")
+            print("\n\nsomething went wrong\n\n")
             await finish(c1, c2, data)
+            raise
             # sys.exit()
             return
     

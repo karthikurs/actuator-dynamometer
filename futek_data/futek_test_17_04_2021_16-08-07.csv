@@ -1,0 +1,11 @@
+# Test started at Sat Apr 17 16:08:07 2021
+# Labels:
+# 	 a1 = actuator 1. Values at *actuator* level after gearbox
+# 	 a2 = actuator 2. Values at *actuator* level after gearbox
+# 	 c1 = moteus controller 1. Values at *motor* level (no gearbox)
+# 	 c2 = moteus controller 2. Values at *motor* level (no gearbox)
+# Note: Data assumes gearbox is 100pc efficient
+# 
+# kt_1 = 0.1278820334157297; kt_2 = 0.13595605181875947
+# load damping scale = 0.6
+time [s],a1 q-axis cmd [A],a1 torque cmd [Nm],a1 position [rad],a1 velocity [rad/s],a1 torque [Nm],a2 position [rad],a2 velocity [rad/s],a2 torque [Nm],c1 mode,c1 position [rev],c1 vel [Hz],c1 torque [Nm],c1 voltage [V],c1 temp [C],c1 fault,c2 mode,c2 position [rev],c2 vel [Hz],c2 torque [Nm],c2 voltage [V],c2 temp [C],c2 fault,trd605 torque [Nm],temp 1 [C],temp 2 [C],observed torque constant [Nm/A]
