@@ -62,7 +62,7 @@ async def main():
         help="specify gear ratio of actuator test sample (default = 1.0)",
         type=float)
     parser.add_argument("-g2", "--gear2",\
-        help="specify gear ratio of load actuator (default = 6.0)",
+        help="specify gear ratio of load actuator (default = 1.0)",
         type=float)
     parser.add_argument("-s", "--step",\
         help="run a step response test. provide step input current to test actuator in A",
@@ -77,7 +77,7 @@ async def main():
     args = parser.parse_args()
 
     g1 = args.gear1 if args.gear1 is not None else 1.0
-    g2 = args.gear2 if args.gear2 is not None else 6.0
+    g2 = args.gear2 if args.gear2 is not None else 1.0
     step_mag = args.step if args.step is not None else 0.0 
     damping = args.damping if args.damping is not None else 0.1 
     
@@ -162,19 +162,21 @@ async def main():
                 return
             
             # cmd = 4.0*math.sin(t)
-            max_cmd = 7.0 # A
+            max_cmd = 5.0 # A
             rate = 0.5 # A/s
             incr = 0.5 # A
             old_cmd = cmd
             if args.step is not None: cmd = step_mag if t > 0.0 else 0.0
             else:
-                cmd = incr*(min(rate*(t%20), max_cmd)//incr)
-                # cmd = max_cmd*math.sin(5*t)
+                # cmd = incr*(min(rate*(t%20), max_cmd)//incr)
+                freq_hz = 0.5*(min(0.05*t, 50)//0.5)
+                cmd = max_cmd*math.sin(freq_hz*np.pi*t)
             
             # if (t//2.0) % 2 > 0: cmd = 0
 
-            if min(temp1, temp2) > 40 or max(temp1, temp2) > 80 or overtemp:
-                print("over temp: temp1 = {}, temp2 = {}".format(round(temp1, 2), round(temp2, 2)))
+            if min(temp1, temp2) > 45 or max(temp1, temp2) > 80 or overtemp:
+                if t % 1.0 < 0.012 or overtemp == False:
+                    print("over temp: temp1 = {}, temp2 = {}".format(round(temp1, 2), round(temp2, 2)))
                 # await finish(c1,c2,data)
                 # return
                 overtemp = True
