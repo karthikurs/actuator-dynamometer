@@ -162,15 +162,17 @@ async def main():
                 return
             
             # cmd = 4.0*math.sin(t)
-            max_cmd = 5.0 # A
+            max_cmd = 4.0 # A
             rate = 0.5 # A/s
             incr = 0.5 # A
             old_cmd = cmd
+            freq_hz = 0
             if args.step is not None: cmd = step_mag if t > 0.0 else 0.0
             else:
                 # cmd = incr*(min(rate*(t%20), max_cmd)//incr)
-                freq_hz = 0.5*(min(0.05*t, 50)//0.5)
-                cmd = max_cmd*math.sin(freq_hz*np.pi*t)
+                freq_hz = ((0.5*t)//1.0) # exponent
+                freq_hz = min(1.0*(1.1**freq_hz), 45) # increase freq by 10% every 2 sec
+                cmd = max_cmd*math.cos(freq_hz*np.pi*t)
             
             # if (t//2.0) % 2 > 0: cmd = 0
 
@@ -189,9 +191,9 @@ async def main():
             # if cmd != old_cmd: print("cmd = {} A".format(cmd))
 
             reply1 = (await c1.set_current(q_A=cmd, d_A=0.0, query=True))
-            # reply2 = (await c2.set_current(q_A=0.0, d_A=0.0, query=True))
-            reply2 = (await c2.set_position(position=math.nan, velocity=0.0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
+            reply2 = (await c2.set_current(q_A=0.0, d_A=0.0, query=True))
+            # reply2 = (await c2.set_position(position=math.nan, velocity=0.0,\
+            #     watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
 
             p1, v1, t1 = parse_reply(reply1, g1)
             p2, v2, t2 = parse_reply(reply2, g2)
@@ -203,7 +205,8 @@ async def main():
             temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
             temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
 
-            if t % 1.0 < 0.012: print("t = {}s, temp1 = {}, temp2 = {}".format(round(t, 3), round(temp1, 2), round(temp2, 2)))
+            if t % 1.0 < 0.012: print("t = {}s, temp1 = {}, temp2 = {}, freq_hz = {}".format(\
+                round(t, 3), round(temp1, 2), round(temp2, 2), round(freq_hz, 2)))
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
