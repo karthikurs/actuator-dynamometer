@@ -162,17 +162,17 @@ async def main():
                 return
             
             # cmd = 4.0*math.sin(t)
-            max_cmd = 4.0 # A
-            rate = 0.5 # A/s
-            incr = 0.5 # A
+            max_cmd = 2.0 # A
+            rate = 0.05 # A/s
+            incr = 0.05 # A
             old_cmd = cmd
             freq_hz = 0
             if args.step is not None: cmd = step_mag if t > 0.0 else 0.0
             else:
-                # cmd = incr*(min(rate*(t%20), max_cmd)//incr)
-                freq_hz = ((0.5*t)//1.0) # exponent
-                freq_hz = min(1.0*(1.1**freq_hz), 45) # increase freq by 10% every 2 sec
-                cmd = max_cmd*math.cos(freq_hz*np.pi*t)
+                cmd = incr*(min(rate*(t), max_cmd)//incr)
+                # freq_hz = ((0.5*t)//1.0) # exponent
+                # freq_hz = min(1.0*(1.1**freq_hz), 45) # increase freq by 10% every 2 sec
+                # cmd = max_cmd*math.cos(freq_hz*np.pi*t)
             
             # if (t//2.0) % 2 > 0: cmd = 0
 
