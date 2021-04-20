@@ -16,7 +16,8 @@ z1 = load_current_experiment('futek_test_13_04_2021_20-10-36.csv');
 % selstruc(arxstruc(e1(:,:,1),e1(:,:,1),NN2))
 % z1 = z1(1:5000);
 
-ztf = tfest(z1,2,[],0)
+tfopt = tfestOptions('InitialCondition','estimate');
+ztf = tfest(z1,2,[],0, tfopt)
 
 z2 = load_current_experiment('futek_test_14_04_2021_16-17-17.csv');
 z3 = load_current_experiment('futek_test_14_04_2021_16-13-41.csv');
@@ -25,8 +26,11 @@ compare(z1, ztf)
 
 %%
 
-z = z3;
-e = e3;
+[e4, z4] = load_experiments('futek_test_17_04_2021_16-37-13.csv', true);
+[e5, z5] = load_experiments('futek_test_17_04_2021_17-20-44.csv', true);
+
+z = z5;
+e = e5;
 
 [yfit, ~, ~] = compare(z, ztf);
 e_hat = iddata(e.y, yfit.y, e.Ts);
@@ -56,22 +60,27 @@ title('PLA Temp')
 legend('location','best');
 hold off;
 
-function exp = load_temp_experiment(fname)
+function exp = load_temp_experiment(fname, swap_temp)
     data_table = readtable(fname);
     
     t = table2array(data_table(1:end, 1));
     i = table2array(data_table(1:end, 2));
     i2 = i.^2;
 
-    Tp = table2array(data_table(1:end, 25)) - 23;
-    Tm = table2array(data_table(1:end, 26)) - 23;
+    if swap_temp
+        Tp = table2array(data_table(1:end, 26)) - 23;
+        Tm = table2array(data_table(1:end, 25)) - 23;
+    else
+        Tp = table2array(data_table(1:end, 25)) - 23;
+        Tm = table2array(data_table(1:end, 26)) - 23;
+    end
     
     Ts = mean(-t(1:end-1) + t(2:end));
     
     exp = iddata(Tp, Tm, Ts);
 end
 
-function exp = load_current_experiment(fname)
+function exp = load_current_experiment(fname, swap_temp)
     data_table = readtable(fname);
     
     t = table2array(data_table(1:end, 1));
@@ -84,4 +93,25 @@ function exp = load_current_experiment(fname)
     Ts = mean(-t(1:end-1) + t(2:end));
     
     exp = iddata(Tm, i2, Ts);
+end
+
+function [e, z] = load_experiments(fname, swap_temp)
+    data_table = readtable(fname);
+    
+    t = table2array(data_table(1:end, 1));
+    i = table2array(data_table(1:end, 2));
+    i2 = i.^2;
+
+    if swap_temp
+        Tp = table2array(data_table(1:end, 26)) - 23;
+        Tm = table2array(data_table(1:end, 25)) - 23;
+    else
+        Tp = table2array(data_table(1:end, 25)) - 23;
+        Tm = table2array(data_table(1:end, 26)) - 23;
+    end
+    
+    Ts = mean(-t(1:end-1) + t(2:end))
+    
+    e = iddata(Tp, Tm, Ts);
+    z = iddata(Tm, i2, Ts);
 end
