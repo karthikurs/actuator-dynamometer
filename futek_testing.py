@@ -59,10 +59,10 @@ async def main():
         help="enter comment string to be included in output csv. DO NOT INCLUDE ANY COMMAS.",
         type=str)
     parser.add_argument("-g1", "--gear1",\
-        help="specify gear ratio of actuator test sample (default = 1.0)",
+        help="specify gear ratio of actuator test sample",
         type=float)
     parser.add_argument("-g2", "--gear2",\
-        help="specify gear ratio of load actuator (default = 1.0)",
+        help="specify gear ratio of load actuator",
         type=float)
     parser.add_argument("-s", "--step",\
         help="run a step response test. provide step input current to test actuator in A",
@@ -76,8 +76,8 @@ async def main():
 
     args = parser.parse_args()
 
-    g1 = args.gear1 if args.gear1 is not None else 1.0
-    g2 = args.gear2 if args.gear2 is not None else 1.0
+    g1 = args.gear1 if args.gear1 is not None else 6.0
+    g2 = args.gear2 if args.gear2 is not None else 6.0
     step_mag = args.step if args.step is not None else 0.0 
     damping = args.damping if args.damping is not None else 0.1 
     
@@ -162,9 +162,9 @@ async def main():
                 return
             
             # cmd = 4.0*math.sin(t)
-            max_cmd = 8.0 # A
-            rate = 0.25 # A/s
-            incr = 0.25 # A
+            max_cmd = 10.0 # A
+            rate = 0.5 # A/s
+            incr = 0.5 # A
             old_cmd = cmd
             freq_hz = 0
             if args.step is not None: cmd = step_mag if t > 0.0 else 0.0
