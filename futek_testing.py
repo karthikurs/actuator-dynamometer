@@ -155,9 +155,9 @@ async def main():
     cb = c2
     orient_a_1 = True
 
-    max_cmd = 1.5   # A     or rotation Hz in velocity mode
-    rate = 0.1      # A/s   or rotation Hz/s in velocity mode
-    incr = 0.1      # A     or rotation Hz in velocity mode
+    max_cmd = 0.75   # A     or rotation Hz in velocity mode
+    rate = 0.05      # A/s   or rotation Hz/s in velocity mode
+    incr = 0.05      # A     or rotation Hz in velocity mode
 
     while True:
         try:
@@ -165,7 +165,7 @@ async def main():
             t_fcn = time.monotonic() - t0_fcn
 
             # swap which side is driving
-            if t_fcn > max_cmd/rate + 2:
+            if t_fcn > max_cmd/rate + 2 and False:
                 ctemp = ca
                 ca = cb
                 cb = ctemp
@@ -184,6 +184,7 @@ async def main():
             if args.step is not None: cmd = step_mag if t > 0.0 else 0.0
             else:
                 cmd = incr*(min(rate*(t_fcn), max_cmd)//incr)
+                cmd = 0
                 # freq_hz = ((0.5*t)//1.0) # exponent
                 # freq_hz = min(1.0*(1.1**freq_hz), 45) # increase freq by 10% every 2 sec
                 # cmd = max_cmd*math.cos(freq_hz*np.pi*t)
@@ -210,8 +211,11 @@ async def main():
             # reply2 = (await c2.set_position(position=0.0, velocity=0.0,\
             #     watchdog_timeout=2.0, kp_scale=2.0, kd_scale=1.0, query=True))
 
-            replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
-            replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
+            # replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+            # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
+
+            replya = await ca.set_stop(query=True)
+            replyb = await cb.set_stop(query=True)
 
             if orient_a_1:
                 reply1 = replya
@@ -231,7 +235,7 @@ async def main():
             temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
 
             if t % 1.0 < 0.019: print("t = {}s, temp1 = {}, temp2 = {}, freq_hz = {}, cmd = {}".format(\
-                round(t, 3), round(temp1, 2), round(temp2, 2), round(freq_hz, 2), round(cmd, 2)))
+                round(t, 3), round(temp1, 2), round(temp2, 2), round(freq_hz, 2), round(cmd, 4)))
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 

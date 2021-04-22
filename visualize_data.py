@@ -80,7 +80,7 @@ def main() :
         time = data[headers[0]]
         Ts = np.abs(np.mean(np.array(time[1:-1]) - np.array(time[0:-2])))
         fs = 1/Ts
-        cutoff = 0.01*fs
+        cutoff = 0.1*fs
         order = 6
         b, a = butter_lowpass(cutoff, fs, order)
 
