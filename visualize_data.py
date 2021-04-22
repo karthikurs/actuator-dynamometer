@@ -106,6 +106,9 @@ def main() :
                 if "filter" in xstr:
                     filt_x = True
                     xstr = xstr.replace("filter",'')
+                if "f" in xstr:
+                    filt_x = True
+                    xstr = xstr.replace("f",'')
                 if not xstr.isdigit():
                     print("invalid input")
                     return
@@ -120,11 +123,17 @@ def main() :
                     if "filter" in sstr:
                         filt_s = True
                         sstr = sstr.replace("filter",'')
+                    if "f" in sstr:
+                        filt_s = True
+                        sstr = sstr.replace("f",'')
 
                     scatter = False
                     if "scatter" in sstr:
                         scatter = True
                         sstr = sstr.replace("scatter",'')
+                    if "s" in sstr:
+                        scatter = True
+                        sstr = sstr.replace("s",'')
 
                     if not sstr.isdigit():
                         print("invalid input")
