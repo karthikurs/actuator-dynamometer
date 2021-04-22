@@ -44,9 +44,9 @@ async def init_controllers():
     os.system(cmd2)
     
     cal1 = json.load(open(cal_file_1, "r"))
-    kt_1 = 0.78*30/(np.pi*cal1["kv"])
+    kt_1 = 0.78*cal1["v_per_hz"]/np.pi
     cal2 = json.load(open(cal_file_2, "r")) 
-    kt_2 = 0.78*30/(np.pi*cal2["kv"])
+    kt_2 = 0.78*cal2["v_per_hz"]/np.pi
     
     await c1.set_stop()
     await c2.set_stop()
