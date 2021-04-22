@@ -1,3 +1,4 @@
+%% motor temp to PLA temp model estimation
 e1 = load_temp_experiment('futek_test_13_04_2021_20-10-36.csv');
 
 NN2 = struc(1:3,1:3,1000);
@@ -10,7 +11,7 @@ e3 = load_temp_experiment('futek_test_14_04_2021_16-13-41.csv');
 
 compare(e1, etf)
 
-%%
+%% current cmd to motor temp estimation
 z1 = load_current_experiment('futek_test_13_04_2021_20-10-36.csv');
 % NN2 = struc(1:3,1:3,10);
 % selstruc(arxstruc(e1(:,:,1),e1(:,:,1),NN2))
@@ -26,39 +27,105 @@ compare(z1, ztf)
 
 %%
 
-[e4, z4] = load_experiments('futek_test_17_04_2021_16-37-13.csv', true);
-[e5, z5] = load_experiments('futek_test_17_04_2021_17-20-44.csv', true);
+datafiles = ["futek_test_17_04_2021_17-38-27.csv",
+    "futek_test_17_04_2021_17-38-55.csv",
+    "futek_test_17_04_2021_17-39-55.csv",
+    "futek_test_17_04_2021_17-41-49.csv"];
 
-z = z5;
-e = e5;
-
-[yfit, ~, ~] = compare(z, ztf);
-e_hat = iddata(e.y, yfit.y, e.Ts);
-[yfit, ~, ~] = compare(e_hat, etf);
-c_hat = iddata(yfit.y, z.u, e.Ts);
-c_true = iddata(e.y, z.u, e.Ts);
+v_a1s = [];
+t_a1s = [];
+t_trds = [];
+t_ests = [];
+ps = [];
 
 figure;
-subplot(3,1,1)
-plot(z.SamplingInstants, z.u, 'b-', 'DisplayName','i^2 motor input');
-title('Motor Current Command')
-legend('location','best');
+hold on;
+for ii = 1:length(datafiles)
 
-subplot(3,1,2)
-hold on
-plot(e.SamplingInstants, e.u, 'k-', 'DisplayName', 'Motor Temp Meas')
-plot(e_hat.SamplingInstants, e_hat.u, 'b--', 'DisplayName', 'Motor Temp Est')
-title('Motor Temp')
-legend('location','best');
-hold off
+    datafile = datafiles(ii);
+    data_table = readtable(datafile);
+    t = table2array(data_table(1:end, 1));
+    v_a1 = table2array(data_table(1:end, 5));
+    t_a1 = table2array(data_table(1:end, 6));
+    t_trd = table2array(data_table(1:end, 24));
+    kt = table2array(data_table(1:end, 27));
 
-subplot(3,1,3)
-hold on
-plot(c_true.SamplingInstants, c_true.y, 'k-', 'DisplayName','PLA Temp Meas')
-plot(c_hat.SamplingInstants, c_hat.y, 'b--', 'DisplayName','PLA Temp Est')
-title('PLA Temp')
+    [p, s] = polyfit(v_a1, t_trd, 1);
+    t_est = polyval(p, v_a1);
+    
+    v_a1s = [v_a1s; v_a1];
+    t_a1s = [t_a1s; t_a1];
+    t_trds = [t_trds; t_trd];
+    t_ests = [t_ests; t_est];
+    ps = [ps; p];
+% 	scatter(v_a1, t_trd,'.');
+% 	plot(v_a1, t_est, '-', 'DisplayName',"data idx: "+ii+"; damping ="+p(1)+" Nm/rad/s; coloumbic ="+p(2)+" Nm",'LineWidth',4);
+% 	scatter(v_a1, kt, 'DisplayName','$K_T$');
+	plot(t, kt)
+end
 legend('location','best');
-hold off;
+ps
+xlabel("velocity [rad/s]")
+ylabel("TRD506 torque [mNm]")
+% title("Damping Coeff ~"+p(1)+" Nm/rad/s; Coloumbic Friction ~"+p(2)+" Nm");
+
+%% Plotting
+% [e4, z4] = load_experiments('futek_test_17_04_2021_16-37-13.csv', true);
+% [e5, z5] = load_experiments('futek_test_17_04_2021_17-20-44.csv', true);
+
+plot_thermal_model('futek_test_13_04_2021_20-10-36.csv', etf, ztf, false);
+
+function plot_thermal_model(dataset, etf, ztf, swap_temps)
+    set(0, 'DefaultTextInterpreter', 'latex');
+    set(0, 'DefaultLegendInterpreter', 'latex');
+    set(0, 'DefaultAxesTickLabelInterpreter', 'latex');
+    % dataset = 'futek_test_17_04_2021_16-37-13.csv';
+
+    [e, z] = load_experiments(dataset, swap_temps);
+
+    [yfit, ~, ~] = compare(z, ztf);
+    e_hat = iddata(e.y, yfit.y, e.Ts);
+    [yfit, ~, ~] = compare(e_hat, etf);
+    c_hat = iddata(yfit.y, z.u, e.Ts);
+    c_true = iddata(e.y, z.u, e.Ts);
+
+    figure;
+    
+    set(gcf, 'Units', 'inches')
+    set(gcf, 'Position', [0 0 6 7.5]);
+    
+    subplot(3,1,1)
+    plot(z.SamplingInstants, z.u, 'b-', 'DisplayName','$i^2$ motor input');
+    ylabel({"Square of input current";"$i_q^2$ [A$^2$]"})
+    title('Motor Current Command')
+
+    subplot(3,1,2)
+    hold on
+    plot(e.SamplingInstants, e.u, 'k-', 'DisplayName', 'Motor Temp Meas')
+    plot(e_hat.SamplingInstants, e_hat.u, 'b--', 'DisplayName', 'Motor Temp Est')
+    err = mean((e.u-e_hat.u).^2);
+    title("Motor Temp Above Ambient (MSE = "+err+" $^o $C$^2$)")
+    ylabel({"Motor Temperature";"$T_m$, [$^o$ C]"})
+    ylim([0 70]);
+    legend('location','best');
+    hold off
+
+    subplot(3,1,3)
+    hold on
+    plot(c_true.SamplingInstants, c_true.y, 'k-', 'DisplayName','PLA Temp Meas')
+    plot(c_hat.SamplingInstants, c_hat.y, 'b--', 'DisplayName','PLA Temp Est')
+    err = mean((c_true.y-c_hat.y).^2);
+    title("PLA Temp Above Ambient (MSE = "+err+" $^o $C$^2$)")
+    ylabel({"PLA Temperature";"$T_P$, [$^o$ C]"})
+    ylim([0 70]);
+    xlabel("Time, $t$, [s]")
+    legend('location','best');
+    hold off;
+
+    sgtitle(dataset, 'interpreter','none');
+    
+    saveas(gcf,"thermal_model_"+dataset+".png")
+end
 
 function exp = load_temp_experiment(fname, swap_temp)
     data_table = readtable(fname);
