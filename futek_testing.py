@@ -142,7 +142,7 @@ async def main():
                 "c2 torque [Nm]", "c2 voltage [V]",\
                 "c2 temp [C]", "c2 fault",\
                 "trd605 torque [Nm]",
-                "temp 1 [C]", "temp 2 [C]",\
+                "motor temp [C]", "housing temp [C]",\
                 "observed torque constant [Nm/A]"])
 
     overtemp = False
@@ -151,10 +151,26 @@ async def main():
     temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
     temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
     t0_fcn = t0
+    ca = c1
+    cb = c2
+    orient_a_1 = True
+
+    max_cmd = 1.5   # A     or rotation Hz in velocity mode
+    rate = 0.1      # A/s   or rotation Hz/s in velocity mode
+    incr = 0.1      # A     or rotation Hz in velocity mode
+
     while True:
         try:
             t = time.monotonic() - t0
             t_fcn = time.monotonic() - t0_fcn
+
+            # swap which side is driving
+            if t_fcn > max_cmd/rate + 2:
+                ctemp = ca
+                ca = cb
+                cb = ctemp
+                orient_a_1 = not orient_a_1
+                t0_fcn = time.monotonic()
 
             if args.duration is not None and t > args.duration:
                 print("test duration done")
@@ -162,14 +178,12 @@ async def main():
                 return
             
             # cmd = 4.0*math.sin(t)
-            max_cmd = 10.0 # A
-            rate = 0.5 # A/s
-            incr = 0.5 # A
+            
             old_cmd = cmd
             freq_hz = 0
             if args.step is not None: cmd = step_mag if t > 0.0 else 0.0
             else:
-                cmd = incr*(min(rate*(t), max_cmd)//incr)
+                cmd = incr*(min(rate*(t_fcn), max_cmd)//incr)
                 # freq_hz = ((0.5*t)//1.0) # exponent
                 # freq_hz = min(1.0*(1.1**freq_hz), 45) # increase freq by 10% every 2 sec
                 # cmd = max_cmd*math.cos(freq_hz*np.pi*t)
@@ -190,12 +204,21 @@ async def main():
 
             # if cmd != old_cmd: print("cmd = {} A".format(cmd))
 
-            reply1 = (await c1.set_current(q_A=cmd, d_A=0.0, query=True))
-            # reply2 = (await c2.set_current(q_A=0.0, d_A=0.0, query=True))
-            reply2 = (await c2.set_position(position=math.nan, velocity=0.0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
+            # reply1 = (await c1.set_current(q_A=cmd, d_A=0.0, query=True))
+            # reply2 = (await c2.set_position(position=math.nan, velocity=0.0,\
+            #     watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
             # reply2 = (await c2.set_position(position=0.0, velocity=0.0,\
             #     watchdog_timeout=2.0, kp_scale=2.0, kd_scale=1.0, query=True))
+
+            replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+            replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
+
+            if orient_a_1:
+                reply1 = replya
+                reply2 = replyb
+            else:
+                reply2 = replya
+                reply1 = replyb
 
             p1, v1, t1 = parse_reply(reply1, g1)
             p2, v2, t2 = parse_reply(reply2, g2)

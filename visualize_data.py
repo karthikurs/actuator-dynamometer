@@ -6,6 +6,20 @@ import numpy as np
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 from scipy import stats
+from scipy.signal import butter, lfilter, freqz
+
+
+# https://stackoverflow.com/questions/25191620/creating-lowpass-filter-in-scipy-understanding-methods-and-units
+def butter_lowpass(cutoff, fs, order=5):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return b, a
+
+def butter_lowpass_filter(data, cutoff, fs, order=5):
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = lfilter(b, a, data)
+    return y
 
 
 def main() :
@@ -62,6 +76,17 @@ def main() :
         headers = data.columns.values
         for i in range(num_cols) :
             print('\t{}:\t'.format(i) + headers[i])
+
+        time = data[headers[0]]
+        Ts = np.abs(np.mean(np.array(time[1:-1]) - np.array(time[0:-2])))
+        fs = 1/Ts
+        cutoff = 0.01*fs
+        order = 6
+        b, a = butter_lowpass(cutoff, fs, order)
+
+        # import ipdb; ipdb.set_trace()
+        # print(Ts)
+        # return
         print('enter which data you would like to plot by their indices separated by pipes \'|\'')
         print('the first index will be taken as the x-axis and the rest will be plotted as separate series')
         while True:
@@ -73,16 +98,48 @@ def main() :
                 fig = plt.figure()
                 ax = fig.gca()
                 indices = plot_str.split('|')
-                xlabel = headers[int(indices[0])]
-                # import ipdb; ipdb.set_trace()
-                xseries = data[xlabel]
+                
+                xidx=None
+                filt_x = False
+
+                xstr = indices[0]
+                if "filter" in xstr:
+                    filt_x = True
+                    xstr = xstr.replace("filter",'')
+                if not xstr.isdigit():
+                    print("invalid input")
+                    return
+                xidx = int(xstr)
+                xlabel = headers[xidx]
+                xseries = data[xlabel] if not filt_x else butter_lowpass_filter(data[xlabel], cutoff, fs, order)
+
                 for index in indices[1:]:
-                    label = headers[int(index)]
-                    series = data[label]
+                    sidx = None
+                    filt_s = False
+                    sstr = index
+                    if "filter" in sstr:
+                        filt_s = True
+                        sstr = sstr.replace("filter",'')
+
+                    scatter = False
+                    if "scatter" in sstr:
+                        scatter = True
+                        sstr = sstr.replace("scatter",'')
+
+                    if not sstr.isdigit():
+                        print("invalid input")
+                        return
+                    sidx = int(sstr)
+                    label = headers[sidx]
+                    series = data[label] if not filt_s else butter_lowpass_filter(data[label], cutoff, fs, order)
+                    
                     ratio = 1
                     if label.find("torque") > -1 and (label.find("c1") > -1 or label.find("c2") > -1):
                         ratio = gear_ratio
-                    ax.plot(xseries, ratio*series, label=label)
+                    if filt_s: label += ", filtered"
+                    if scatter: ax.scatter(xseries, ratio*series, label=label, s=1)
+                    else: ax.plot(xseries, ratio*series, label=label)
+                if filt_x: xlabel += ", filtered"
                 plt.xlabel(xlabel)
                 plt.legend()
                 plt.title(args.filename)
