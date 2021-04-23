@@ -160,9 +160,9 @@ async def main():
     cmd2 = 0
 
     # parameters for stairstep command
-    max_cmd = 4.1   # A     or rotation Hz in velocity mode
-    rate = 0.1      # A/s   or rotation Hz/s in velocity mode
-    incr = 1.0      # A     or rotation Hz in velocity mode
+    max_cmd = 8.1   # A     or rotation Hz in velocity mode
+    rate = 1.0      # A/s   or rotation Hz/s in velocity mode
+    incr = 4.0      # A     or rotation Hz in velocity mode
 
     while True:
         try:
@@ -227,10 +227,10 @@ async def main():
             replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
             # replya = (await ca.set_position(position=math.nan, velocity=0.5,\
                 # watchdog_timeout=2.0, query=True))
-            # replyb = (await cb.set_position(position=0.07 + orient_a_1*0.10, velocity=math.nan,\
-            #     watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
-            replyb = (await cb.set_position(position=math.nan, velocity=0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
+            replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
+                watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
+            # replyb = (await cb.set_position(position=math.nan, velocity=0,\
+            #     watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
             # replyb = await cb.set_stop(query=True)
             # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
 
