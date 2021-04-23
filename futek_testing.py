@@ -76,8 +76,8 @@ async def main():
 
     args = parser.parse_args()
 
-    g1 = args.gear1 if args.gear1 is not None else 6.0
-    g2 = args.gear2 if args.gear2 is not None else 6.0
+    g1 = args.gear1 if args.gear1 is not None else 1.0
+    g2 = args.gear2 if args.gear2 is not None else 1.0
     step_mag = args.step if args.step is not None else 0.0 
     damping = args.damping if args.damping is not None else 0.1 
     
@@ -130,11 +130,13 @@ async def main():
     if args.step is not None: data.append(["# step input test; magnitude = {} A".format(step_mag)])
     if args.comment is not None: data.append(["# User comment: " + args.comment])
 
-    data.append(["time [s]",
-                "a1 q-axis cmd [A]",
-                "a1 torque cmd [Nm]",
-                "a1 position [rad]", "a1 velocity [rad/s]", "a1 torque [Nm]",
-                "a2 position [rad]", "a2 velocity [rad/s]", "a2 torque [Nm]",
+    data.append(["time [s]",\
+                "a1 q-axis cmd [A]",\
+                "a1 torque cmd [Nm]",\
+                "a1 position [rad]", "a1 velocity [rad/s]", "a1 torque [Nm]", "a1 q-axis [A]",\
+                "a2 q-axis cmd [A]",\
+                "a2 torque cmd [Nm]",\
+                "a2 position [rad]", "a2 velocity [rad/s]", "a2 torque [Nm]", "a2 q-axis [A]",\
                 "c1 mode", "c1 position [rev]", "c1 vel [Hz]",\
                 "c1 torque [Nm]", "c1 voltage [V]",\
                 "c1 temp [C]", "c1 fault",\
@@ -153,11 +155,15 @@ async def main():
     t0_fcn = t0
     ca = c1
     cb = c2
-    orient_a_1 = True
+    orient_a_1 = True # True when a1 is driving
+    cmd1 = 0
+    cmd2 = 0
 
-    max_cmd = 6.0   # A     or rotation Hz in velocity mode
+    # parameters for stairstep command
+    max_cmd = 4.0   # A     or rotation Hz in velocity mode
     rate = 0.25      # A/s   or rotation Hz/s in velocity mode
     incr = 1.0      # A     or rotation Hz in velocity mode
+
 
     while True:
         try:
@@ -212,8 +218,8 @@ async def main():
 
             replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
             # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
-            replyb = (await cb.set_position(position=math.nan, velocity=0.0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
+            replyb = (await cb.set_position(position=0, velocity=nan,\
+                watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
 
             # replya = await ca.set_stop(query=True)
             # replyb = await cb.set_stop(query=True)
@@ -221,9 +227,13 @@ async def main():
             if orient_a_1:
                 reply1 = replya
                 reply2 = replyb
+                cmd1 = cmd
+                cmd2 = 0
             else:
                 reply2 = replya
                 reply1 = replyb
+                cmd1 = 0
+                cmd2 = cmd
 
             p1, v1, t1 = parse_reply(reply1, g1)
             p2, v2, t2 = parse_reply(reply2, g2)
@@ -240,8 +250,8 @@ async def main():
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
-            row = [t] + [cmd] + [cmd*kt_1*g1] +\
-                [p1, v1, t1, p2, v2, t2]\
+            row = [t] + [cmd1] + [cmd1*kt_1*g1] +\
+                [p1, v1, t1, t1/kt_1] + [cmd2] + [cmd2*kt_2*g2] + [p2, v2, t2, t2/kt_2]\
                 + raw_reply_list(reply1) + raw_reply_list(reply2) +\
                 [futek_torque, temp1, temp2, observed_kt]
             data.append(row)
