@@ -222,14 +222,16 @@ async def main():
             #     watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
             # reply2 = (await c2.set_position(position=0.0, velocity=0.0,\
             #     watchdog_timeout=2.0, kp_scale=2.0, kd_scale=1.0, query=True))
-
-            replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+            cmd = 0.0
+            # replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+            replya = (await ca.set_position(position=math.nan, velocity=0.5,\
+                watchdog_timeout=2.0, query=True))
             # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
-            replyb = (await cb.set_position(position=0, velocity=math.nan,\
-                watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
+            # replyb = (await cb.set_position(position=0, velocity=math.nan,\
+            #     watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
+            replyb = await cb.set_stop(query=True)
 
             # replya = await ca.set_stop(query=True)
-            # replyb = await cb.set_stop(query=True)
 
             if orient_a_1:
                 reply1 = replya
