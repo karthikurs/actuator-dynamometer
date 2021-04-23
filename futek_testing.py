@@ -192,7 +192,8 @@ async def main():
                 cmd0 = incr*(min(rate*(t_fcn), max_cmd)//incr)
 
                 # modulate command to explore hysteresis effects
-                if(((rate*t_fcn)%incr)/incr > 0.2 and ((rate*t_fcn)%incr)/incr <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
+                if(((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
+                elif(((rate*t_fcn)%incr)/incr > 0.2 and ((rate*t_fcn)%incr)/incr <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
                 elif(((rate*t_fcn)%incr)/incr > 0.4 and ((rate*t_fcn)%incr)/incr <= 0.6): cmd = cmd0
                 elif(((rate*t_fcn)%incr)/incr > 0.6 and ((rate*t_fcn)%incr)/incr <= 0.8): cmd = cmd0 - min(0.5*incr, 0.3)
                 elif(((rate*t_fcn)%incr)/incr > 0.8 and ((rate*t_fcn)%incr)/incr <= 0.9): cmd = cmd0
