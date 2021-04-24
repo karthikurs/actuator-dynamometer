@@ -143,8 +143,8 @@ def main() :
                     series = data[label] if not filt_s else butter_lowpass_filter(data[label], cutoff, fs, order)
                     
                     ratio = 1
-                    if label.find("torque") > -1 and (label.find("c1") > -1 or label.find("c2") > -1):
-                        ratio = gear_ratio
+                    # if label.find("torque") > -1 and (label.find("c1") > -1 or label.find("c2") > -1):
+                        # ratio = gear_ratio
                     if filt_s: label += ", filtered"
                     if scatter: ax.scatter(xseries, ratio*series, label=label, s=1)
                     else: ax.plot(xseries, ratio*series, label=label)

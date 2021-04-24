@@ -73,11 +73,13 @@ async def main():
     parser.add_argument("--duration",\
         help="test duration in seconds",
         type=float)
+    parser.add_argument("--stair",\
+        help="stairstep current input (configure directly in script)", action='store_true')
 
     args = parser.parse_args()
 
-    g1 = args.gear1 if args.gear1 is not None else 1.0
-    g2 = args.gear2 if args.gear2 is not None else 1.0
+    g1 = args.gear1 if args.gear1 is not None else 6.0
+    g2 = args.gear2 if args.gear2 is not None else 6.0
     step_mag = args.step if args.step is not None else 0.0 
     damping = args.damping if args.damping is not None else 0.1 
     
@@ -160,9 +162,10 @@ async def main():
     cmd2 = 0
 
     # parameters for stairstep command
-    max_cmd = 12.1   # A     or rotation Hz in velocity mode
-    rate = 2.0      # A/s   or rotation Hz/s in velocity mode
-    incr = 12.0      # A     or rotation Hz in velocity mode
+    max_cmd = 4.0   # A     or rotation Hz in velocity mode
+    hold = 5.0        # s
+    incr = 1.0      # A     or rotation Hz in velocity mode
+    rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
 
     while True:
         try:
@@ -170,7 +173,7 @@ async def main():
             t_fcn = time.monotonic() - t0_fcn
 
             # swap which side is driving
-            if t_fcn > (max_cmd+incr)/rate:
+            if t_fcn > (max_cmd+incr)/rate and args.stair:
                 ctemp = ca
                 ca = cb
                 cb = ctemp
@@ -188,11 +191,11 @@ async def main():
             old_cmd = cmd
             freq_hz = 0
             if args.step is not None: cmd = step_mag if t > 0.0 else 0.0
-            else:
+            elif args.stair:
                 cmd0 = incr*(min(rate*(t_fcn), max_cmd)//incr)
 
                 # modulate command to explore hysteresis effects
-                if(((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
+                if(((rate*t_fcn)%incr)/incr > 0.01 and ((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
                 elif(((rate*t_fcn)%incr)/incr > 0.2 and ((rate*t_fcn)%incr)/incr <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
                 elif(((rate*t_fcn)%incr)/incr > 0.4 and ((rate*t_fcn)%incr)/incr <= 0.6): cmd = cmd0
                 elif(((rate*t_fcn)%incr)/incr > 0.6 and ((rate*t_fcn)%incr)/incr <= 0.8): cmd = cmd0 - min(0.5*incr, 0.3)
@@ -224,16 +227,17 @@ async def main():
             #     watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
             # reply2 = (await c2.set_position(position=0.0, velocity=0.0,\
             #     watchdog_timeout=2.0, kp_scale=2.0, kd_scale=1.0, query=True))
-            # cmd = 0.0
-            replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+            # cmd = 0.15
+            # replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+            replya = await ca.set_stop(query=True)
             # replya = (await ca.set_position(position=math.nan, velocity=0.5,\
                 # watchdog_timeout=2.0, query=True))
-            replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
-                watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
-            # replyb = (await cb.set_position(position=math.nan, velocity=0,\
-            #     watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
+            # replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
+            #     watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
+            replyb = (await cb.set_position(position=math.nan, velocity=0,\
+                watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
             # replyb = await cb.set_stop(query=True)
-            # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
+            # replyb = (await cb.set_current(q_A=0, d_A=0.0, query=True))
 
             # replya = await ca.set_stop(query=True)
 
@@ -242,10 +246,12 @@ async def main():
                 reply2 = replyb
                 cmd1 = cmd
                 cmd2 = 0
+                # cmd2 = cmd
             else:
                 reply2 = replya
                 reply1 = replyb
                 cmd1 = 0
+                # cmd1 = cmd
                 cmd2 = cmd
 
             p1, v1, t1 = parse_reply(reply1, g1)
@@ -264,7 +270,7 @@ async def main():
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
             row = [t] + [cmd1] + [cmd1*kt_1*g1] +\
-                [p1, v1, t1, t1/kt_1] + [cmd2] + [cmd2*kt_2*g2] + [p2, v2, t2, t2/kt_2]\
+                [p1, v1, t1, t1/(kt_1*g1)] + [cmd2] + [cmd2*kt_2*g2] + [p2, v2, t2, t2/(kt_2*g2)]\
                 + raw_reply_list(reply1) + raw_reply_list(reply2) +\
                 [futek_torque, temp1, temp2, observed_kt]
             data.append(row)
