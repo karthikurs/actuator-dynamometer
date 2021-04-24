@@ -160,9 +160,9 @@ async def main():
     cmd2 = 0
 
     # parameters for stairstep command
-    max_cmd = 8.1   # A     or rotation Hz in velocity mode
-    rate = 1.0      # A/s   or rotation Hz/s in velocity mode
-    incr = 4.0      # A     or rotation Hz in velocity mode
+    max_cmd = 12.1   # A     or rotation Hz in velocity mode
+    rate = 2.0      # A/s   or rotation Hz/s in velocity mode
+    incr = 12.0      # A     or rotation Hz in velocity mode
 
     while True:
         try:
