@@ -162,7 +162,7 @@ async def main():
     cmd2 = 0
 
     # parameters for stairstep command
-    max_cmd = 4.0   # A     or rotation Hz in velocity mode
+    max_cmd = 4.1   # A     or rotation Hz in velocity mode
     hold = 5.0        # s
     incr = 1.0      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
@@ -190,12 +190,12 @@ async def main():
             
             old_cmd = cmd
             freq_hz = 0
-            if args.step is not None: cmd = step_mag if t > 0.0 else 0.0
+            if args.step is not None: cmd = step_mag
             elif args.stair:
                 cmd0 = incr*(min(rate*(t_fcn), max_cmd)//incr)
 
                 # modulate command to explore hysteresis effects
-                if(((rate*t_fcn)%incr)/incr > 0.01 and ((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
+                if(  ((rate*t_fcn)%incr)/incr > 0.01 and ((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
                 elif(((rate*t_fcn)%incr)/incr > 0.2 and ((rate*t_fcn)%incr)/incr <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
                 elif(((rate*t_fcn)%incr)/incr > 0.4 and ((rate*t_fcn)%incr)/incr <= 0.6): cmd = cmd0
                 elif(((rate*t_fcn)%incr)/incr > 0.6 and ((rate*t_fcn)%incr)/incr <= 0.8): cmd = cmd0 - min(0.5*incr, 0.3)
@@ -228,14 +228,15 @@ async def main():
             # reply2 = (await c2.set_position(position=0.0, velocity=0.0,\
             #     watchdog_timeout=2.0, kp_scale=2.0, kd_scale=1.0, query=True))
             # cmd = 0.15
-            # replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
-            replya = await ca.set_stop(query=True)
+            replyb = (await cb.set_position(position=math.nan, velocity=0,\
+                watchdog_timeout=1.0, kp_scale=0.0, kd_scale=1.0, query=True))
+                
+            replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+            # replya = await ca.set_stop(query=True)
             # replya = (await ca.set_position(position=math.nan, velocity=0.5,\
                 # watchdog_timeout=2.0, query=True))
             # replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
             #     watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
-            replyb = (await cb.set_position(position=math.nan, velocity=0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
             # replyb = await cb.set_stop(query=True)
             # replyb = (await cb.set_current(q_A=0, d_A=0.0, query=True))
 
@@ -264,7 +265,7 @@ async def main():
             temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
             temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
 
-            if t % 1.0 < 0.019: print("t = {}s, temp1 = {}, temp2 = {}, freq_hz = {}, cmd = {}".format(\
+            if t % 1.0 < 0.02: print("t = {}s, temp1 = {}, temp2 = {}, freq_hz = {}, cmd = {}".format(\
                 round(t, 3), round(temp1, 2), round(temp2, 2), round(freq_hz, 2), round(cmd, 4)))
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
