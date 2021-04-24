@@ -160,9 +160,9 @@ async def main():
     cmd2 = 0
 
     # parameters for stairstep command
-    max_cmd = 4.1   # A     or rotation Hz in velocity mode
-    rate = 0.1      # A/s   or rotation Hz/s in velocity mode
-    incr = 1.0      # A     or rotation Hz in velocity mode
+    max_cmd = 12.1   # A     or rotation Hz in velocity mode
+    rate = 2.0      # A/s   or rotation Hz/s in velocity mode
+    incr = 12.0      # A     or rotation Hz in velocity mode
 
     while True:
         try:
@@ -170,7 +170,7 @@ async def main():
             t_fcn = time.monotonic() - t0_fcn
 
             # swap which side is driving
-            if t_fcn > (max_cmd+incr)/rate and False:
+            if t_fcn > (max_cmd+incr)/rate:
                 ctemp = ca
                 ca = cb
                 cb = ctemp
@@ -192,7 +192,8 @@ async def main():
                 cmd0 = incr*(min(rate*(t_fcn), max_cmd)//incr)
 
                 # modulate command to explore hysteresis effects
-                if(((rate*t_fcn)%incr)/incr > 0.2 and ((rate*t_fcn)%incr)/incr <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
+                if(((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
+                elif(((rate*t_fcn)%incr)/incr > 0.2 and ((rate*t_fcn)%incr)/incr <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
                 elif(((rate*t_fcn)%incr)/incr > 0.4 and ((rate*t_fcn)%incr)/incr <= 0.6): cmd = cmd0
                 elif(((rate*t_fcn)%incr)/incr > 0.6 and ((rate*t_fcn)%incr)/incr <= 0.8): cmd = cmd0 - min(0.5*incr, 0.3)
                 elif(((rate*t_fcn)%incr)/incr > 0.8 and ((rate*t_fcn)%incr)/incr <= 0.9): cmd = cmd0
@@ -227,10 +228,10 @@ async def main():
             replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
             # replya = (await ca.set_position(position=math.nan, velocity=0.5,\
                 # watchdog_timeout=2.0, query=True))
-            # replyb = (await cb.set_position(position=0.07 + orient_a_1*0.10, velocity=math.nan,\
-            #     watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
-            replyb = (await cb.set_position(position=math.nan, velocity=0,\
-                watchdog_timeout=2.0, kp_scale=0, kd_scale=1.0, query=True))
+            replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
+                watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
+            # replyb = (await cb.set_position(position=math.nan, velocity=0,\
+            #     watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
             # replyb = await cb.set_stop(query=True)
             # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
 
