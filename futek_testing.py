@@ -57,13 +57,13 @@ async def main():
     parser = argparse.ArgumentParser(description='Runs dual-actuator moteus controller futek dynamometer setup')
     parser.add_argument("-c", "--comment",\
         help="enter comment string to be included in output csv. DO NOT INCLUDE ANY COMMAS.",
-        type=str)
+        type=str, required=True)
     parser.add_argument("-g1", "--gear1",\
         help="specify gear ratio of actuator test sample",
-        type=float)
+        type=float, required=True)
     parser.add_argument("-g2", "--gear2",\
         help="specify gear ratio of load actuator",
-        type=float)
+        type=float, required=True)
     parser.add_argument("-s", "--step",\
         help="run a step response test. provide step input current to test actuator in A",
         type=float)
@@ -74,10 +74,13 @@ async def main():
         help="test duration in seconds",
         type=float)
 
+    parser.add_argument("--stair",\
+        help="run stairstep input (configured in the file)",action='store_true')
+
     args = parser.parse_args()
 
-    g1 = args.gear1 if args.gear1 is not None else 1.0
-    g2 = args.gear2 if args.gear2 is not None else 1.0
+    g1 = args.gear1 if args.gear1 is not None else 6.0
+    g2 = args.gear2 if args.gear2 is not None else 6.0
     step_mag = args.step if args.step is not None else 0.0 
     damping = args.damping if args.damping is not None else 0.1 
     
@@ -131,6 +134,7 @@ async def main():
     if args.comment is not None: data.append(["# User comment: " + args.comment.replace(',',';')])
 
     data.append(["time [s]",\
+                "time function [s]",\
                 "a1 q-axis cmd [A]",\
                 "a1 torque cmd [Nm]",\
                 "a1 position [rad]", "a1 velocity [rad/s]", "a1 torque [Nm]", "a1 q-axis [A]",\
@@ -160,7 +164,7 @@ async def main():
     cmd2 = 0
 
     # parameters for stairstep command
-    max_cmd = 4.1   # A     or rotation Hz in velocity mode
+    max_cmd = 5.1   # A     or rotation Hz in velocity mode
     hold = 5.0        # s
     incr = 1.0      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
@@ -192,7 +196,7 @@ async def main():
             elif args.stair:
                 cmd0 = incr*(min(rate*(t_fcn), max_cmd)//incr)
 
-                # modulate command to explore hysteresis effects
+                # modulate command to combat/balance out hysteresis effects
                 if(  ((rate*t_fcn)%incr)/incr > 0.01 and ((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
                 elif(((rate*t_fcn)%incr)/incr > 0.2 and ((rate*t_fcn)%incr)/incr <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
                 elif(((rate*t_fcn)%incr)/incr > 0.4 and ((rate*t_fcn)%incr)/incr <= 0.6): cmd = cmd0
@@ -227,7 +231,7 @@ async def main():
             #     watchdog_timeout=2.0, kp_scale=2.0, kd_scale=1.0, query=True))
             # cmd = 0.15
             replyb = (await cb.set_position(position=math.nan, velocity=0,\
-                watchdog_timeout=1.0, kp_scale=0.0, kd_scale=1.0, query=True))
+                watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
                 
             replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
             # replya = await ca.set_stop(query=True)
@@ -266,8 +270,8 @@ async def main():
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
-            row = [t] + [cmd1] + [cmd1*kt_1*g1] +\
-                [p1, v1, t1, t1/kt_1] + [cmd2] + [cmd2*kt_2*g2] + [p2, v2, t2, t2/kt_2]\
+            row = [t, t_fcn] + [cmd1] + [cmd1*kt_1*g1] +\
+                [p1, v1, t1, t1/(kt_1*g1)] + [cmd2] + [cmd2*kt_2*g2] + [p2, v2, t2, t2/(kt_2*g2)]\
                 + raw_reply_list(reply1) + raw_reply_list(reply2) +\
                 [futek_torque, temp1, temp2, observed_kt]
             data.append(row)
