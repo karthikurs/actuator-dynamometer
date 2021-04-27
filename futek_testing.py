@@ -37,6 +37,11 @@ def adc2temp(temp):
     temp = (1/298.15) + (1/3950)*math.log(Rt/R0)
     return 1/temp - 273.15
 
+def adc2futek(adc, gain=1, zero_val=2.500):
+    torque = 6.144*(2.0*adc/(65536))
+    torque = -2.0*(torque-zero_val) * gain
+    return torque
+
 async def finish(c1, c2, data=None):
     if data is not None:
         print("\nwriting data...")
@@ -77,12 +82,20 @@ async def main():
     parser.add_argument("--stair",\
         help="run stairstep input (configured in the file)",action='store_true')
 
+    parser.add_argument("--torquesensor",\
+        help="specify which torque sensor is being used", choices=['trd605-18', 'trs605-5'],\
+        type=str, required=True)
+
     args = parser.parse_args()
 
     g1 = args.gear1 if args.gear1 is not None else 6.0
     g2 = args.gear2 if args.gear2 is not None else 6.0
     step_mag = args.step if args.step is not None else 0.0 
     damping = args.damping if args.damping is not None else 0.1 
+
+    ts_gain = 0; ts_overload = 0
+    if args.torquesensor == 'trd605-18': ts_gain = 18.0/5.0; ts_overload = 18
+    elif args.torquesensor == 'trs605-5': ts_gain = 5.0/5.0 ts_overload = 5
     
     c1, c2, kt_1, kt_2 = await init_controllers()
 
@@ -128,7 +141,9 @@ async def main():
     data.append(["# \t c2 = moteus controller 2. Values at *motor* level (no gearbox)"])
     data.append(["# Note: Data assumes gearbox is 100pc efficient"])
     data.append(["# "])
-    data.append(["# kt_1 = {}; kt_2 = {}".format(kt_1, kt_2)])
+    data.append(["# kt_1 = {}; kt_2 = {} from calibration logs".format(kt_1, kt_2)])
+    data.append(["# g1 = {}; g2 = {}".format(g1, g2)])
+    data.append(["# torque sensor: {}".format(args.torquesensor)])
     data.append(["# load damping scale = {}".format(damping)])
     if args.step is not None: data.append(["# step input test; magnitude = {} A".format(step_mag)])
     if args.comment is not None: data.append(["# User comment: " + args.comment.replace(',',';')])
@@ -147,7 +162,7 @@ async def main():
                 "c2 mode", "c2 position [rev]", "c2 vel [Hz]",\
                 "c2 torque [Nm]", "c2 voltage [V]",\
                 "c2 temp [C]", "c2 fault",\
-                "trd605 torque [Nm]",
+                "{} torque [Nm]".format(args.torquesensor),
                 "motor temp [C]", "housing temp [C]",\
                 "observed torque constant [Nm/A]"])
 
@@ -160,12 +175,13 @@ async def main():
     ca = c1
     cb = c2
     orient_a_1 = True # True when a1 is driving
+    pos_neg = 1 # positive or negative command
     cmd1 = 0
     cmd2 = 0
 
     # parameters for stairstep command
-    max_cmd = 5.1   # A     or rotation Hz in velocity mode
-    hold = 5.0        # s
+    max_cmd = 5   # A     or rotation Hz in velocity mode
+    hold = 4.0        # s
     incr = 1.0      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
 
@@ -179,7 +195,8 @@ async def main():
                 ctemp = ca
                 ca = cb
                 cb = ctemp
-                orient_a_1 = not orient_a_1
+                orient_a_1 = not orient_a_1 # swap driving actuator
+                if orient_a_1: pos_neg = -pos_neg # swap cmd sign every other cycles
                 t0_fcn = time.monotonic()
                 print("reverse! reverse!")
 
@@ -194,7 +211,7 @@ async def main():
             freq_hz = 0
             if args.step is not None: cmd = step_mag
             elif args.stair:
-                cmd0 = incr*(min(rate*(t_fcn), max_cmd)//incr)
+                cmd0 = pos_neg * incr*(min(rate*(t_fcn), max_cmd)//incr)
 
                 # modulate command to combat/balance out hysteresis effects
                 if(  ((rate*t_fcn)%incr)/incr > 0.01 and ((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
@@ -258,15 +275,13 @@ async def main():
             p1, v1, t1 = parse_reply(reply1, g1)
             p2, v2, t2 = parse_reply(reply2, g2)
 
-            futek_torque = adc.read_adc(1, gain=GAIN, data_rate=DATARATE)
-            futek_torque = round(6.144*(2.0*futek_torque/(65536)), 6)
-            futek_torque = -2.0*(futek_torque-zero_val) * 18.0/5.0
 
+            futek_torque = adc.read_adc(1, gain=GAIN, data_rate=DATARATE); futek_torque = adc2futek(futek_torque, gain=5/5)
             temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
             temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
 
-            if t % 1.0 < 0.02: print("t = {}s, temp1 = {}, temp2 = {}, freq_hz = {}, cmd = {}".format(\
-                round(t, 3), round(temp1, 2), round(temp2, 2), round(freq_hz, 2), round(cmd, 4)))
+            if t % 1.0 < 0.02: print("t = {}s, temp1 = {}, temp2 = {}, freq_hz = {}, cmd = {}, t1 = {}, t2 = {}".format(\
+                round(t, 3), round(temp1, 2), round(temp2, 2), round(freq_hz, 2), round(cmd, 4), t1, t2))
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
@@ -275,6 +290,12 @@ async def main():
                 + raw_reply_list(reply1) + raw_reply_list(reply2) +\
                 [futek_torque, temp1, temp2, observed_kt]
             data.append(row)
+
+            if abs(t1) > ts_overload or abs(t2) > ts_overload:
+                await finish(c1, c2, data)
+                # sys.exit()
+                return
+
         except (KeyboardInterrupt, SystemExit):
             await finish(c1, c2, data)
             # sys.exit()
