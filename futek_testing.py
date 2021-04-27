@@ -252,14 +252,14 @@ async def main():
             # cmd = 0.15
             # replyb = (await cb.set_position(position=math.nan, velocity=0,\
             #     watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
-            replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
-                watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
+            # replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
+            #     watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
+            replyb = await cb.set_stop(query=True)
                 
-            replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
-            # replya = await ca.set_stop(query=True)
+            # replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+            replya = await ca.set_stop(query=True)
             # replya = (await ca.set_position(position=math.nan, velocity=0.5,\
                 # watchdog_timeout=2.0, query=True))
-            # replyb = await cb.set_stop(query=True)
             # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
 
             # replya = await ca.set_stop(query=True)
@@ -295,6 +295,7 @@ async def main():
             data.append(row)
 
             if abs(t1) > ts_overload or abs(t2) > ts_overload:
+                print("torque overload detected")
                 await finish(c1, c2, data)
                 # sys.exit()
                 return
