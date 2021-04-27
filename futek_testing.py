@@ -86,6 +86,10 @@ async def main():
         help="specify which torque sensor is being used", choices=['trd605-18', 'trs605-5'],\
         type=str, required=True)
 
+    parser.add_argument("--loadbehavior",\
+        help="specify how load actuator behaves", choices=['damping', 'damp', 'stall', 'stop', 'idle'],\
+        type=str, required=True)
+
     args = parser.parse_args()
 
     g1 = args.gear1 if args.gear1 is not None else 6.0
@@ -144,6 +148,7 @@ async def main():
     data.append(["# kt_1 = {}; kt_2 = {} from calibration logs".format(kt_1, kt_2)])
     data.append(["# g1 = {}; g2 = {}".format(g1, g2)])
     data.append(["# torque sensor: {}".format(args.torquesensor)])
+    data.append(["# load behavior: {}".format(args.loadbehavior)])
     data.append(["# load damping scale = {}".format(damping)])
     if args.step is not None: data.append(["# step input test; magnitude = {} A".format(step_mag)])
     if args.comment is not None: data.append(["# User comment: " + args.comment.replace(',',';')])
@@ -178,11 +183,13 @@ async def main():
     pos_neg = 1 # positive or negative command
     cmd1 = 0
     cmd2 = 0
+    replya = None
+    replyb = None
 
     # parameters for stairstep command
-    max_cmd = 5   # A     or rotation Hz in velocity mode
-    hold = 4.0        # s
-    incr = 1.0      # A     or rotation Hz in velocity mode
+    max_cmd = 10   # A     or rotation Hz in velocity mode
+    hold = 2.0        # s
+    incr = 5.0      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
 
     cycle = 1
@@ -250,14 +257,17 @@ async def main():
             # reply2 = (await c2.set_position(position=0.0, velocity=0.0,\
             #     watchdog_timeout=2.0, kp_scale=2.0, kd_scale=1.0, query=True))
             # cmd = 0.15
-            # replyb = (await cb.set_position(position=math.nan, velocity=0,\
-            #     watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
-            # replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
-            #     watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
-            replyb = await cb.set_stop(query=True)
+            if args.loadbehavior == 'damping' or args.loadbehavior == 'damp':
+                replyb = (await cb.set_position(position=math.nan, velocity=0,\
+                    watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
+            elif args.loadbehavior == 'stall':
+                replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
+                    watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
+            else:
+                replyb = await cb.set_stop(query=True)
                 
-            # replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
-            replya = await ca.set_stop(query=True)
+            replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+            # replya = await ca.set_stop(query=True)
             # replya = (await ca.set_position(position=math.nan, velocity=0.5,\
                 # watchdog_timeout=2.0, query=True))
             # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
