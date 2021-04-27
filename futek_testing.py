@@ -190,7 +190,7 @@ async def main():
     while True:
         try:
             t = time.monotonic() - t0
-            t_fcn = time.monotonic() - t0_fcn
+            if not overtemp: t_fcn = time.monotonic() - t0_fcn
 
             # swap which side is driving
             if t_fcn > (max_cmd+incr)/rate:
@@ -230,7 +230,7 @@ async def main():
             
             # if (t//2.0) % 2 > 0: cmd = 0
 
-            if min(temp1, temp2) > 45 or max(temp1, temp2) > 80 or overtemp:
+            if min(temp1, temp2) > 45 or max(temp1, temp2) > 85 or overtemp:
                 if t % 1.0 < 0.019 or overtemp == False:
                     print("over temp: temp1 = {}, temp2 = {}".format(round(temp1, 2), round(temp2, 2)))
                 # await finish(c1,c2,data)
@@ -238,9 +238,9 @@ async def main():
                 overtemp = True
                 cmd = 0.0
 
-            if min(temp1, temp2) < 35 and max(temp1, temp2) < 70 and overtemp:
+            if min(temp1, temp2) < 40 and max(temp1, temp2) < 70 and overtemp:
                 overtemp = False
-                t0_fcn = time.monotonic()
+                # t0_fcn = time.monotonic()
 
             # if cmd != old_cmd: print("cmd = {} A".format(cmd))
 
@@ -250,15 +250,15 @@ async def main():
             # reply2 = (await c2.set_position(position=0.0, velocity=0.0,\
             #     watchdog_timeout=2.0, kp_scale=2.0, kd_scale=1.0, query=True))
             # cmd = 0.15
-            replyb = (await cb.set_position(position=math.nan, velocity=0,\
-                watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
+            # replyb = (await cb.set_position(position=math.nan, velocity=0,\
+            #     watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
+            replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
+                watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
                 
             replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
             # replya = await ca.set_stop(query=True)
             # replya = (await ca.set_position(position=math.nan, velocity=0.5,\
                 # watchdog_timeout=2.0, query=True))
-            # replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
-            #     watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
             # replyb = await cb.set_stop(query=True)
             # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
 
