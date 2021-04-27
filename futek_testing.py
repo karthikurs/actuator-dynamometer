@@ -184,9 +184,14 @@ async def main():
     temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
     temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
     t0_fcn = t0
-    ca = c1
-    cb = c2
-    orient_a_1 = True # True when a1 is driving
+    # ca = c1
+    # cb = c2
+    # orient_a_1 = True # True when a1 is driving
+    ca = c2
+    cb = c1
+    orient_a_1 = False # True when a1 is driving
+    
+    
     pos_neg = 1 # positive or negative command
     cmd1 = 0
     cmd2 = 0
@@ -195,8 +200,8 @@ async def main():
 
     # parameters for stairstep command
     max_cmd = 20   # A     or rotation Hz in velocity mode
-    hold = 2.0        # s
-    incr = 1.0      # A     or rotation Hz in velocity mode
+    hold = 4.0        # s
+    incr = 2.5      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
 
     cycle = 1
