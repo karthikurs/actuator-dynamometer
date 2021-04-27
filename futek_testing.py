@@ -90,6 +90,10 @@ async def main():
         help="specify how load actuator behaves", choices=['damping', 'damp', 'stall', 'stop', 'idle'],\
         type=str, required=True)
 
+    parser.add_argument("--drivemode",\
+        help="specify how driving actuator behaves", choices=['velocity', 'current'],\
+        type=str, required=True)
+
     args = parser.parse_args()
 
     g1 = args.gear1 if args.gear1 is not None else 6.0
@@ -187,9 +191,9 @@ async def main():
     replyb = None
 
     # parameters for stairstep command
-    max_cmd = 10   # A     or rotation Hz in velocity mode
+    max_cmd = 20   # A     or rotation Hz in velocity mode
     hold = 2.0        # s
-    incr = 5.0      # A     or rotation Hz in velocity mode
+    incr = 1.0      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
 
     cycle = 1
@@ -266,10 +270,14 @@ async def main():
             else:
                 replyb = await cb.set_stop(query=True)
                 
-            replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
-            # replya = await ca.set_stop(query=True)
-            # replya = (await ca.set_position(position=math.nan, velocity=0.5,\
-                # watchdog_timeout=2.0, query=True))
+            if args.drivemode == 'curent':
+                replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+            elif args.drivemode == 'velocity':
+                replya = (await ca.set_position(position=math.nan, velocity=cmd,\
+                    watchdog_timeout=2.0, query=True))
+            else:
+                cmd = 0
+                replya = await ca.set_stop(query=True)
             # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
 
             # replya = await ca.set_stop(query=True)
@@ -287,7 +295,6 @@ async def main():
 
             p1, v1, t1 = parse_reply(reply1, g1)
             p2, v2, t2 = parse_reply(reply2, g2)
-
 
             futek_torque = adc.read_adc(1, gain=GAIN, data_rate=DATARATE); futek_torque = adc2futek(futek_torque, gain=5/5)
             temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
