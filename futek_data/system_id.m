@@ -1,27 +1,31 @@
 %% motor temp to PLA temp model estimation
-e1 = load_temp_experiment('futek_test_13_04_2021_20-10-36.csv');
+% e1 = load_temp_experiment('futek_test_13_04_2021_20-10-36.csv');
+swap_temps=false;
+[e1, z1] = load_experiments('futek_test_13_04_2021_20-10-36.csv', swap_temps);
 
 NN2 = struc(1:3,1:3,1000);
 % selstruc(arxstruc(e1(:,:,1),e1(:,:,1),NN2))
 
-etf = tfest(e1,2,[],0)
+etf = tfest(e1,2,0,0)
 
-e2 = load_temp_experiment('futek_test_14_04_2021_16-17-17.csv');
-e3 = load_temp_experiment('futek_test_14_04_2021_16-13-41.csv');
+% e2 = load_temp_experiment('futek_test_14_04_2021_16-17-17.csv');
+% e3 = load_temp_experiment('futek_test_14_04_2021_16-13-41.csv');
+[e2, z2] = load_experiments('futek_test_14_04_2021_16-17-17.csv', swap_temps);
+[e3, z3] = load_experiments('futek_test_14_04_2021_16-13-41.csv', swap_temps);
 
-compare(e1, etf)
+compare(e3, etf)
 
 %% current cmd to motor temp estimation
-z1 = load_current_experiment('futek_test_13_04_2021_20-10-36.csv');
+% z1 = load_current_experiment('futek_test_13_04_2021_20-10-36.csv');
 % NN2 = struc(1:3,1:3,10);
 % selstruc(arxstruc(e1(:,:,1),e1(:,:,1),NN2))
 % z1 = z1(1:5000);
 
 tfopt = tfestOptions('InitialCondition','estimate');
-ztf = tfest(z1,2,[],0, tfopt)
+ztf = tfest(z1,2,1,0)
 
-z2 = load_current_experiment('futek_test_14_04_2021_16-17-17.csv');
-z3 = load_current_experiment('futek_test_14_04_2021_16-13-41.csv');
+% z2 = load_current_experiment('futek_test_14_04_2021_16-17-17.csv');
+% z3 = load_current_experiment('futek_test_14_04_2021_16-13-41.csv');
 
 compare(z1, ztf)
 
@@ -145,11 +149,115 @@ ps
 % [e4, z4] = load_experiments('futek_test_17_04_2021_16-37-13.csv', true);
 % [e5, z5] = load_experiments('futek_test_17_04_2021_17-20-44.csv', true);
 
-plot_thermal_model('futek_test_13_04_2021_20-10-36.csv', etf, ztf, false);
+plot_thermal_model('futek_test_17_04_2021_16-37-13.csv', etf, ztf, true);
 
-%% Filtering
+%% KT
 
+data_no_gb_stall_fnames_a1 = ["futek_test_23_04_2021_16-38-38.csv",
+    "futek_test_23_04_2021_17-15-16.csv",
+    "futek_test_23_04_2021_17-18-16.csv",
+    "futek_test_23_04_2021_18-06-56.csv",
+    "futek_test_23_04_2021_18-10-46.csv",
+    "futek_test_23_04_2021_18-37-08.csv",
+    "futek_test_23_04_2021_20-03-31.csv"];
+data_no_gb_damp_fnames_a1 = ["futek_test_23_04_2021_19-52-25.csv",
+    "futek_test_23_04_2021_19-57-18.csv"];
 
+data_no_gb_stall_fnames_a2 = ["futek_test_23_04_2021_18-52-31.csv",
+    "futek_test_23_04_2021_19-08-29.csv",
+    "futek_test_23_04_2021_19-29-38.csv",
+    "futek_test_23_04_2021_19-30-41.csv",
+    "futek_test_23_04_2021_19-36-34.csv"];
+data_no_gb_damp_fnames_a2 = ["futek_test_23_04_2021_19-16-12.csv",
+    "futek_test_23_04_2021_19-20-04.csv",
+    "futek_test_23_04_2021_19-22-22.csv"];
+
+datafiles = ["futek_test_23_04_2021_16-38-38.csv"];
+datafiles = data_no_gb_stall_fnames_a1;
+
+time_oall = [];
+a1_q_cmd_oall = [];
+a1_q_meas_oall = [];
+trd_oall = [];
+
+figure;
+hold on
+for kk = 1:4
+    label = '';
+    if kk==1; datafiles = data_no_gb_stall_fnames_a1; label = 'a1 Stall load '; end
+    if kk==2; datafiles = data_no_gb_damp_fnames_a1; label = 'a1 Damped load '; end
+    if kk==3; datafiles = data_no_gb_stall_fnames_a2; label = 'a2 Stall load '; end
+    if kk==4; datafiles = data_no_gb_damp_fnames_a2; label = 'a2 Damped load '; end
+    for ii = 1:length(datafiles)
+
+        datafile = datafiles(ii);
+        data_table = readtable(datafile,'PreserveVariableNames',true);
+        headers = data_table.Properties.VariableNames;
+
+        time_idx = find(ismember(headers,'time [s]'));
+        a1_q_cmd_idx = find(ismember(headers,'a1 q-axis cmd [A]'));
+        a1_q_meas_idx = find(ismember(headers,'a1 q-axis [A]'));
+        trd_idx = find(ismember(headers,'trd605 torque [Nm]'));
+
+        a1_v_idx = find(ismember(headers,'a1 velocity [rad/s]'));
+
+        time = table2array(data_table(1:end, time_idx));
+        a1_q_cmd = table2array(data_table(1:end, a1_q_cmd_idx));
+        a1_q_meas = table2array(data_table(1:end, a1_q_meas_idx));
+        trd = table2array(data_table(1:end, trd_idx));
+
+        a1_v = table2array(data_table(1:end, a1_v_idx));
+        if mean(abs(a1_v)) > 1.0
+            fprintf("non-zero velocity: %f\n", mean(abs(a1_v)));
+            fprintf(datafile);
+            fprintf("\n");
+        end
+
+        fs = 1/mean(-time(1:end-1) + time(2:end));
+        fpass = 0.1*fs;
+
+        idx_mask = abs(a1_q_cmd) > 0.01;
+        for jj = -10:10
+            idx_mask = idx_mask & (abs(circshift(a1_q_cmd, jj)) > 0.01);
+        end
+
+        time_oall = [time_oall; time];
+        a1_q_cmd_oall = [a1_q_cmd_oall; a1_q_cmd];
+        a1_q_meas_oall = [a1_q_meas_oall; a1_q_meas];
+        trd_oall = [trd_oall; trd];
+        scatter(a1_q_meas(idx_mask), trd(idx_mask),'.','DisplayName',char(['\verb|',char(datafile),'|']));
+
+    end
+    idx_mask = abs(a1_q_cmd_oall) > 0.01;
+    for jj = -10:10
+        idx_mask = idx_mask & (abs(circshift(a1_q_cmd_oall, jj)) > 0.01);
+    end
+
+    x = a1_q_meas_oall(idx_mask);
+    y = trd_oall(idx_mask);
+
+    [x,sortIdx] = sort(x,'ascend');
+    y = y(sortIdx);
+
+    [p1, s1] = polyfit(x, y, 1);
+    [p2, s2] = polyfit(x, y, 2);
+    
+    p1
+    p2
+
+    trd_est1 = polyval(p1, x);
+    trd_est2 = polyval(p2, x);
+
+    % scatter(a1_q_cmd(idx_mask_oall), trd_oall(idx_mask),'b.');
+
+    plot(x, trd_est1,'--','DisplayName',sprintf("%s $K_T$ Linear Fit: $\\tau = %.3f i_q + %.3f$", label, p1(1),p1(2)));
+    plot(x, trd_est2,'--','DisplayName',sprintf("%s $K_T$ Quadratic Fit: $\\tau = %.3f i_q^2 + %.3f i_q + %.3f$", label, p2(1),p2(2), p2(3)));
+    ylabel('Torque [Nm]');
+    xlabel('q-axis Current ($i_q$) [A]');
+    legend('location','best');    
+end
+title('Torque $\tau$ vs. q-axis Current $i_q$ for Stalled and Damped Load')
+hold off;
 
 function plot_thermal_model(dataset, etf, ztf, swap_temps)
     set(0, 'DefaultTextInterpreter', 'latex');
