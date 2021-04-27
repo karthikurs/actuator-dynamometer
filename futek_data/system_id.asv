@@ -178,16 +178,17 @@ datafiles = data_no_gb_stall_fnames_a1;
 time_oall = [];
 a1_q_cmd_oall = [];
 a1_q_meas_oall = [];
+a2_q_cmd_oall = [];
+a2_q_meas_oall = [];
 trd_oall = [];
 
 figure;
-hold on
 for kk = 1:4
     label = '';
-    if kk==1; datafiles = data_no_gb_stall_fnames_a1; label = 'Stall load '; end
-    if kk==2; datafiles = data_no_gb_damp_fnames_a1; label = 'Damped load '; end
-    if kk==3; datafiles = data_no_gb_stall_fnames_a2; label = 'Stall load '; end
-    if kk==4; datafiles = data_no_gb_damp_fnames_a2; label = 'Damped load '; end
+    if kk==1; datafiles = data_no_gb_stall_fnames_a1;   label = 'Stall load, Orientation 1, ';      end
+    if kk==2; datafiles = data_no_gb_damp_fnames_a1;    label = 'Damped load, Orientation 1, ';     end
+    if kk==3; datafiles = data_no_gb_stall_fnames_a2;   label = 'Stall load, Orientation 2, ';      end
+    if kk==4; datafiles = data_no_gb_damp_fnames_a2;    label = 'Damped load, Orientation 2, ';     end
     for ii = 1:length(datafiles)
 
         datafile = datafiles(ii);
@@ -197,6 +198,8 @@ for kk = 1:4
         time_idx = find(ismember(headers,'time [s]'));
         a1_q_cmd_idx = find(ismember(headers,'a1 q-axis cmd [A]'));
         a1_q_meas_idx = find(ismember(headers,'a1 q-axis [A]'));
+        a2_q_cmd_idx = find(ismember(headers,'a2 q-axis cmd [A]'));
+        a2_q_meas_idx = find(ismember(headers,'a2 q-axis [A]'));
         trd_idx = find(ismember(headers,'trd605 torque [Nm]'));
 
         a1_v_idx = find(ismember(headers,'a1 velocity [rad/s]'));
@@ -204,6 +207,8 @@ for kk = 1:4
         time = table2array(data_table(1:end, time_idx));
         a1_q_cmd = table2array(data_table(1:end, a1_q_cmd_idx));
         a1_q_meas = table2array(data_table(1:end, a1_q_meas_idx));
+        a2_q_cmd = table2array(data_table(1:end, a2_q_cmd_idx));
+        a2_q_meas = table2array(data_table(1:end, a2_q_meas_idx));
         trd = table2array(data_table(1:end, trd_idx));
 
         a1_v = table2array(data_table(1:end, a1_v_idx));
@@ -216,48 +221,123 @@ for kk = 1:4
         fs = 1/mean(-time(1:end-1) + time(2:end));
         fpass = 0.1*fs;
 
-        idx_mask = abs(a1_q_cmd) > 0.01;
+        a1_driving_idx_mask = abs(a1_q_cmd) > 0.01;
         for jj = -10:10
-            idx_mask = idx_mask & (abs(circshift(a1_q_cmd, jj)) > 0.01);
+            a1_driving_idx_mask = a1_driving_idx_mask & (abs(circshift(a1_q_cmd, jj)) > 0.01);
         end
+        
+        a2_driving_idx_mask = abs(a2_q_cmd) > 0.01;
+        for jj = -10:10
+            a2_driving_idx_mask = a2_driving_idx_mask & (abs(circshift(a2_q_cmd, jj)) > 0.01);
+        end
+        
+        a1_driven_idx_mask = a2_driving_idx_mask;
+        a2_driven_idx_mask = a1_driving_idx_mask;
 
         time_oall = [time_oall; time];
         a1_q_cmd_oall = [a1_q_cmd_oall; a1_q_cmd];
         a1_q_meas_oall = [a1_q_meas_oall; a1_q_meas];
+        a2_q_cmd_oall = [a2_q_cmd_oall; a2_q_cmd];
+        a2_q_meas_oall = [a2_q_meas_oall; a2_q_meas];
         trd_oall = [trd_oall; trd];
-        scatter(a1_q_meas(idx_mask), trd(idx_mask),'.','DisplayName',char(['\verb|',char(datafile),'|']));
+        
+        subplot(2,1,1);
+        hold on
+        s = scatter(a1_q_meas(a1_driving_idx_mask), trd(a1_driving_idx_mask),'.','DisplayName',char(['\verb|',char(datafile),'|, a1 driving']));
+        s.MarkerFaceAlpha = .2;
+        s.MarkerEdgeAlpha = .2;
+        
+        s = scatter(a1_q_meas(a1_driven_idx_mask), trd(a1_driven_idx_mask),'o','DisplayName',char(['\verb|',char(datafile),'|, a1 driven']));
+        s.MarkerFaceAlpha = .2;
+        s.MarkerEdgeAlpha = .2;
+        
+        title('Actuator 1 Driving')
+        ylabel('Torque [Nm]');
+        xlabel('q-axis Current ($i_q$) [A]');
+        hold off
+        
+        subplot(2,1,2)
+        hold on
+        s = scatter(a2_q_meas(a2_driving_idx_mask), trd(a2_driving_idx_mask),'.','DisplayName',char(['\verb|',char(datafile),'|, a2 driving']));
+        s.MarkerFaceAlpha = .2;
+        s.MarkerEdgeAlpha = .2;
+        
+        s = scatter(a2_q_meas(a2_driven_idx_mask), trd(a2_driven_idx_mask),'o','DisplayName',char(['\verb|',char(datafile),'|, a2 driven']));
+        s.MarkerFaceAlpha = .2;
+        s.MarkerEdgeAlpha = .2;
+        
+        title('Actuator 2 Driving')
+        ylabel('Torque [Nm]');
+        xlabel('q-axis Current ($i_q$) [A]');
+        hold off
 
     end
-    idx_mask = abs(a1_q_cmd_oall) > 0.01;
+    a1_driving_idx_mask = abs(a1_q_cmd_oall) > 0.01;
     for jj = -10:10
-        idx_mask = idx_mask & (abs(circshift(a1_q_cmd_oall, jj)) > 0.01);
+        a1_driving_idx_mask = a1_driving_idx_mask & (abs(circshift(a1_q_cmd_oall, jj)) > 0.01);
     end
-
-    x = a1_q_meas_oall(idx_mask);
-    y = trd_oall(idx_mask);
-
-    [x,sortIdx] = sort(x,'ascend');
-    y = y(sortIdx);
-
-    [p1, s1] = polyfit(x, y, 1);
-    [p2, s2] = polyfit(x, y, 2);
     
-    p1
-    p2
+    a2_driving_idx_mask = abs(a2_q_cmd_oall) > 0.01;
+    for jj = -10:10
+        a2_driving_idx_mask = a2_driving_idx_mask & (abs(circshift(a1_q_cmd_oall, jj)) > 0.01);
+    end
+    
+    a1_driven_idx_mask = a2_driving_idx_mask; a2_driven_idx_mask = a1_driving_idx_mask;
+    
+    %
+    x_a1_driving = a1_q_meas_oall(a1_driving_idx_mask); y_a1_driving = trd_oall(a1_driving_idx_mask);
+    [x_a1_driving,sortIdx] = sort(x_a1_driving,'ascend'); y_a1_driving = y_a1_driving(sortIdx);
 
-    trd_est1 = polyval(p1, x);
-    trd_est2 = polyval(p2, x);
+    [p_a1_driving_linear, ~] = polyfit(x_a1_driving, y_a1_driving, 1);
+    [p_a1_driving_quadratic, ~] = polyfit(x_a1_driving, y_a1_driving, 2);
 
-    % scatter(a1_q_cmd(idx_mask_oall), trd_oall(idx_mask),'b.');
+    trd_est_a1_driving_linear = polyval(p_a1_driving_linear, x_a1_driving);
+    trd_est_a1_driving_quadratic = polyval(p_a1_driving_quadratic, x_a1_driving);
+    %
+    
+    %
+    x_a2_driving = a2_q_meas_oall(a2_driving_idx_mask); y_a2_driving = trd_oall(a2_driving_idx_mask);
+    [x_a2_driving,sortIdx] = sort(x_a2_driving,'ascend'); y_a2_driving = y_a2_driving(sortIdx);
 
-    plot(x, trd_est1,'--','DisplayName',sprintf("%s $K_T$ Linear Fit: $\\tau = %.3f i_q + %.3f$", label, p1(1),p1(2)));
-    plot(x, trd_est2,'--','DisplayName',sprintf("%s $K_T$ Quadratic Fit: $\\tau = %.3f i_q^2 + %.3f i_q + %.3f$", label, p2(1),p2(2), p2(3)));
-    ylabel('Torque [Nm]');
-    xlabel('q-axis Current ($i_q$) [A]');
-    legend('location','best');    
+    [p_a2_driving_linear, ~] = polyfit(x_a2_driving, y_a2_driving, 1);
+    [p_a2_driving_quadratic, ~] = polyfit(x_a2_driving, y_a2_driving, 2);
+
+    trd_est_a2_driving_linear = polyval(p_a2_driving_linear, x_a2_driving);
+    trd_est_a2_driving_quadratic = polyval(p_a2_driving_quadratic, x_a2_driving);
+    %
+    
+    %
+    x_a1_driven = a1_q_meas_oall(a1_driven_idx_mask); y_a1_driven = trd_oall(a1_driven_idx_mask);
+    [x_a1_driven,sortIdx] = sort(x_a1_driven,'ascend'); y_a1_driven = y_a1_driven(sortIdx);
+
+    [p_a1_driven_linear, ~] = polyfit(x_a1_driven, y_a1_driven, 1);
+    [p_a1_driven_quadratic, ~] = polyfit(x_a1_driven, y_a1_driven, 2);
+
+    trd_est_a1_driven_linear = polyval(p_a1_driven_linear, x_a1_driven);
+    trd_est_a1_driven_quadratic = polyval(p_a1_driven_quadratic, x_a1_driven);
+    %
+    
+    %
+    x_a2_driven = a2_q_meas_oall(a2_driven_idx_mask); y_a2_driven = trd_oall(a2_driven_idx_mask);
+    [x_a2_driven,sortIdx] = sort(x_a2_driven,'ascend'); y_a2_driven = y_a2_driven(sortIdx);
+
+    [p_a2_driven_linear, ~] = polyfit(x_a2_driven, y_a2_driven, 1);
+    [p_a2_driven_quadratic, ~] = polyfit(x_a2_driven, y_a2_driven, 2);
+
+    trd_est_a2_driven_linear = polyval(p_a2_driven_linear, x_a2_driven);
+    trd_est_a2_driven_quadratic = polyval(p_a2_driven_quadratic, x_a2_driven);
+    %
+
+    subplot(2,1,1)
+    hold on
+    plot(x_a1_driving, trd_est_a1_driving_linear,'--','DisplayName',sprintf("%s a1 Driving, $K_T$ Linear Fit: $\\tau = %.3f i_q + %.3f$", label, p_a1_driving_linear(1),p_a1_driving_linear(2)));
+    plot(x_a1_driving, trd_est_a1_driving_quadratic,'--','DisplayName',sprintf("%s a1 Driving, $K_T$ Quadratic Fit: $\\tau = %.3f i_q^2 + %.3f i_q + %.3f$", label, p_a1_driving_quadratic(1),p_a1_driving_quadratic(2), p_a1_driving_quadratic(3)));
+    plot(x_a1_driven, trd_est_a1_driven_linear,'--','DisplayName',sprintf("%s a1 Driven, $K_T$ Linear Fit: $\\tau = %.3f i_q + %.3f$", label, p_a1_driving_linear(1),p_a1_driving_linear(2)));
+    plot(x_a1_driving, trd_est_a1_driving_quadratic,'--','DisplayName',sprintf("%s a1 Driving, $K_T$ Quadratic Fit: $\\tau = %.3f i_q^2 + %.3f i_q + %.3f$", label, p_a1_driving_quadratic(1),p_a1_driving_quadratic(2), p_a1_driving_quadratic(3)));
+    legend('location','best');
+    hold off
 end
-title('Torque vs. q-axis Current 
-hold off;
+sgtitle('Torque $\tau$ vs. q-axis Current $i_q$ for Stalled and Damped Load')
 
 function plot_thermal_model(dataset, etf, ztf, swap_temps)
     set(0, 'DefaultTextInterpreter', 'latex');
