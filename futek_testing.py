@@ -82,6 +82,9 @@ async def main():
     parser.add_argument("--stair",\
         help="run stairstep input (configured in the file)",action='store_true')
 
+    parser.add_argument("--antihysteresis",\
+        help="runs anti-hysteresis pattern",action='store_true')
+
     parser.add_argument("--torquesensor",\
         help="specify which torque sensor is being used", choices=['trd605-18', 'trs605-5'],\
         type=str, required=True)
@@ -228,13 +231,16 @@ async def main():
                 cmd0 = pos_neg * incr*(min(rate*(t_fcn), max_cmd)//incr)
 
                 # modulate command to combat/balance out hysteresis effects
-                if(  ((rate*t_fcn)%incr)/incr > 0.01 and ((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
-                elif(((rate*t_fcn)%incr)/incr > 0.2 and ((rate*t_fcn)%incr)/incr <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
-                elif(((rate*t_fcn)%incr)/incr > 0.4 and ((rate*t_fcn)%incr)/incr <= 0.6): cmd = cmd0
-                elif(((rate*t_fcn)%incr)/incr > 0.6 and ((rate*t_fcn)%incr)/incr <= 0.8): cmd = cmd0 - min(0.5*incr, 0.3)
-                elif(((rate*t_fcn)%incr)/incr > 0.8 and ((rate*t_fcn)%incr)/incr <= 0.9): cmd = cmd0
-                elif(((rate*t_fcn)%incr)/incr > 0.9): cmd = 0
-                else: cmd = 0
+                if args.antihysteresis: 
+                    if(  ((rate*t_fcn)%incr)/incr > 0.01 and ((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
+                    elif(((rate*t_fcn)%incr)/incr > 0.2 and ((rate*t_fcn)%incr)/incr <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
+                    elif(((rate*t_fcn)%incr)/incr > 0.4 and ((rate*t_fcn)%incr)/incr <= 0.6): cmd = cmd0
+                    elif(((rate*t_fcn)%incr)/incr > 0.6 and ((rate*t_fcn)%incr)/incr <= 0.8): cmd = cmd0 - min(0.5*incr, 0.3)
+                    elif(((rate*t_fcn)%incr)/incr > 0.8 and ((rate*t_fcn)%incr)/incr <= 0.9): cmd = cmd0
+                    elif(((rate*t_fcn)%incr)/incr > 0.9): cmd = 0
+                    else: cmd = 0
+                else:
+                    cmd = cmd0
                 # freq_hz = ((0.5*t)//1.0) # exponent
                 # freq_hz = min(1.0*(1.1**freq_hz), 45) # increase freq by 10% every 2 sec
                 # cmd = max_cmd*math.cos(freq_hz*np.pi*t)
