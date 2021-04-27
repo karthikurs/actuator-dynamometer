@@ -95,7 +95,7 @@ async def main():
 
     ts_gain = 0; ts_overload = 0
     if args.torquesensor == 'trd605-18': ts_gain = 18.0/5.0; ts_overload = 18
-    elif args.torquesensor == 'trs605-5': ts_gain = 5.0/5.0 ts_overload = 5
+    elif args.torquesensor == 'trs605-5': ts_gain = 5.0/5.0; ts_overload = 5
     
     c1, c2, kt_1, kt_2 = await init_controllers()
 
@@ -185,6 +185,8 @@ async def main():
     incr = 1.0      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
 
+    cycle = 1
+
     while True:
         try:
             t = time.monotonic() - t0
@@ -199,6 +201,7 @@ async def main():
                 if orient_a_1: pos_neg = -pos_neg # swap cmd sign every other cycles
                 t0_fcn = time.monotonic()
                 print("reverse! reverse!")
+                cycle += 1
 
             if args.duration is not None and t > args.duration:
                 print("test duration done")
@@ -280,8 +283,8 @@ async def main():
             temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
             temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
 
-            if t % 1.0 < 0.02: print("t = {}s, temp1 = {}, temp2 = {}, freq_hz = {}, cmd = {}, t1 = {}, t2 = {}".format(\
-                round(t, 3), round(temp1, 2), round(temp2, 2), round(freq_hz, 2), round(cmd, 4), t1, t2))
+            if t % 1.0 < 0.02: print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, t1 = {}, t2 = {}".format(\
+                round(t, 3), round(temp1, 2), round(temp2, 2), cycle, round(cmd, 4), round(t1, 3), round(t2, 3)))
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
