@@ -160,12 +160,15 @@ async def main():
     if args.step is not None: data.append(["# step input test; magnitude = {} A".format(step_mag)])
     if args.comment is not None: data.append(["# User comment: " + args.comment.replace(',',';')])
 
+    cmd_label = 'q-axis cmd [A]'
+    if args.drivemode == 'velocity': cmd_label = 'velocity cmd [Hz]'
+
     data.append(["time [s]",\
                 "time function [s]",\
-                "a1 q-axis cmd [A]",\
+                "a1 {}".format(cmd_label),\
                 "a1 torque cmd [Nm]",\
                 "a1 position [rad]", "a1 velocity [rad/s]", "a1 torque [Nm]", "a1 q-axis [A]",\
-                "a2 q-axis cmd [A]",\
+                "a2 {}".format(cmd_label),\
                 "a2 torque cmd [Nm]",\
                 "a2 position [rad]", "a2 velocity [rad/s]", "a2 torque [Nm]", "a2 q-axis [A]",\
                 "c1 mode", "c1 position [rev]", "c1 vel [Hz]",\
@@ -184,19 +187,16 @@ async def main():
     temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
     temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
     t0_fcn = t0
-    # ca = c1
-    # cb = c2
-    # orient_a_1 = True # True when a1 is driving
-    ca = c2
-    cb = c1
-    orient_a_1 = False # True when a1 is driving
-    
+    ca = c1
+    cb = c2
+    orient_a_1 = True # True when a1 is driving
+    # ca = c2
+    # cb = c1
+    # orient_a_1 = False # True when a1 is driving
     
     pos_neg = 1 # positive or negative command
-    cmd1 = 0
-    cmd2 = 0
-    replya = None
-    replyb = None
+    cmd1 = 0; cmd2 = 0
+    replya = None; replyb = None
 
     # parameters for stairstep command
     max_cmd = 20   # A     or rotation Hz in velocity mode
@@ -205,11 +205,11 @@ async def main():
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
 
     cycle = 1
+    t_fcn = 0
 
     while True:
         try:
             t = time.monotonic() - t0
-            if not overtemp: t_fcn = time.monotonic() - t0_fcn
 
             # swap which side is driving
             if t_fcn > (max_cmd+incr)/rate:
@@ -227,6 +227,7 @@ async def main():
                 await finish(c1, c2, data)
                 return
             
+            if not overtemp: t_fcn = time.monotonic() - t0_fcn
             # cmd = 4.0*math.sin(t)
             
             old_cmd = cmd
@@ -316,8 +317,8 @@ async def main():
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
-            row = [t, t_fcn] + [cmd1] + [cmd1*kt_1*g1] +\
-                [p1, v1, t1, t1/(kt_1*g1)] + [cmd2] + [cmd2*kt_2*g2] + [p2, v2, t2, t2/(kt_2*g2)]\
+            row = [t, t_fcn] + [cmd1*g1 if args.drivemode=='velocity' else cmd1] + [cmd1*kt_1*g1] +\
+                [p1, v1, t1, t1/(kt_1*g1)] + [cmd2*g2 if args.drivemode=='velocity' else cmd2] + [cmd2*kt_2*g2] + [p2, v2, t2, t2/(kt_2*g2)]\
                 + raw_reply_list(reply1) + raw_reply_list(reply2) +\
                 [futek_torque, temp1, temp2, observed_kt]
             data.append(row)
