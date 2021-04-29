@@ -69,9 +69,6 @@ async def main():
     parser.add_argument("-g2", "--gear2",\
         help="specify gear ratio of load actuator",
         type=float, required=True)
-    parser.add_argument("-s", "--step",\
-        help="run a step response test. provide step input current to test actuator in A",
-        type=float)
     parser.add_argument("-d", "--damping",\
         help="load damping scale. unitless",
         type=float)
@@ -79,7 +76,11 @@ async def main():
         help="test duration in seconds",
         type=float)
 
-    parser.add_argument("--stair",\
+    input_group = parser.add_mutually_exclusive_group()
+    input_group.add_argument("-s", "--step",\
+        help="run a step response test. provide step input current to test actuator in A",
+        type=float)
+    input_group.add_argument("--stair",\
         help="run stairstep input (configured in the file)",action='store_true')
 
     parser.add_argument("--antihysteresis",\
@@ -89,7 +90,7 @@ async def main():
         help="specify which torque sensor is being used", choices=['trd605-18', 'trs605-5'],\
         type=str, required=True)
 
-    parser.add_argument("--loadbehavior",\
+    parser.add_argument("--loadmode",\
         help="specify how load actuator behaves", choices=['damping', 'damp', 'stall', 'stop', 'idle'],\
         type=str, required=True)
 
@@ -97,8 +98,11 @@ async def main():
         help="specify how driving actuator behaves", choices=['velocity', 'current'],\
         type=str, required=True)
 
-    parser.add_argument("--fast",\
+    speed_group = parser.add_mutually_exclusive_group()
+    speed_group.add_argument("--fast",\
         help="skip temp readings, only command c1",action='store_true')
+    speed_group.add_argument("--ultrafast",\
+        help="skip temp and futek readings, only command c1",action='store_true')
 
     args = parser.parse_args()
 
@@ -140,7 +144,8 @@ async def main():
     data.append(["# kt_1 = {}; kt_2 = {} from calibration logs".format(kt_1, kt_2)])
     data.append(["# g1 = {}; g2 = {}".format(g1, g2)])
     data.append(["# torque sensor: {}".format(args.torquesensor)])
-    data.append(["# load behavior: {}".format(args.loadbehavior)])
+    data.append(["# load mode: {}".format(args.loadmode)])
+    data.append(["# drive mode: {}".format(args.drivemode)])
     data.append(["# load damping scale = {}".format(damping)])
     if args.step is not None: data.append(["# step input test; magnitude = {} A".format(step_mag)])
     if args.comment is not None: data.append(["# User comment: " + args.comment.replace(',',';')])
@@ -169,8 +174,9 @@ async def main():
     overtemp = False
     old_cmd = 0.0
     cmd = 0.0
-    temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
-    temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
+    if not args.fast or args.ultrafast:
+        temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
+        temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
     t0_fcn = t0
     ca = c1
     cb = c2
@@ -200,7 +206,7 @@ async def main():
             # Cycle input function
             if t_fcn > (max_cmd+incr)/rate:
                 # Swap driving and loading actuators
-                if not args.fast:
+                if not args.fast and not args.ultrafast:
                     ctemp = ca
                     ca = cb
                     cb = ctemp
@@ -255,11 +261,11 @@ async def main():
                 overtemp = False
 
             # Load Actuator
-            if not args.fast:
-                if args.loadbehavior == 'damping' or args.loadbehavior == 'damp':
+            if not args.fast and not args.ultrafast:
+                if args.loadmode == 'damping' or args.loadmode == 'damp':
                     replyb = (await cb.set_position(position=math.nan, velocity=0,\
                         watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
-                elif args.loadbehavior == 'stall':
+                elif args.loadmode == 'stall':
                     replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
                         watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
                 else:
@@ -292,15 +298,17 @@ async def main():
             p2, v2, t2 = parse_reply(reply2, g2)
 
             # Read from analog sensors (torque and thermistors)
-            if not args.fast:
+            if not args.fast and not args.ultrafast:
                 futek_torque = adc.read_adc(1, gain=GAIN, data_rate=DATARATE); futek_torque = adc2futek(futek_torque, gain=5/5)
                 temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
                 temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
-            else:
+            elif args.fast:
                 futek_torque = adc.get_last_result(); futek_torque = adc2futek(futek_torque, gain=5/5)
                 temp1 = 0; temp2 = 0
+            else:
+                futek_torque=0;temp1=0;temp2=0
 
-            if t % 1.0 < 0.02 and not args.fast: print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, t1 = {}, t2 = {}".format(\
+            if t % 1.0 < 0.02 and not args.fast and not args.ultrafast: print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, t1 = {}, t2 = {}".format(\
                 round(t, 3), round(temp1, 2), round(temp2, 2), cycle, round(cmd, 4), round(t1, 3), round(t2, 3)))
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
