@@ -58,7 +58,7 @@ while True:
         if i == 2 or i == 3: values[i] = adc2temp(values[i])
         elif i == 1: 
             values[i] = round(6.144*(2.0*values[i]/(65536)), 6)
-            values[i] = -2.0*(values[i]-2.500) * 18.0/5.0
+            # values[i] = -2.0*(values[i]-2.500) * 18.0/5.0
 
         # Note you can also pass in an optional data_rate parameter that controls
         # the ADC conversion time (in samples/second). Each chip has a different

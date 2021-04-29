@@ -71,14 +71,17 @@ def main() :
         # data['efficiency from setpoint []'] = data['brake torque [Nm]'] / (gear_ratio * data['motor torque setpoint [Nm]'])
     
     if args.interactive:
-        print('the following data series are available:')
         num_cols = data.shape[1]
         headers = data.columns.values
+        time = data[headers[0]]
+        dt = np.abs(np.array(time[1:-1]) - np.array(time[0:-2]))
+        Ts = np.abs(np.mean(dt))
+        print("Ts mean= {}, Ts median = {}, sigma = {}, outlier fraction = {}".format(round(Ts, 5),\
+            round(np.median(dt), 5), round(np.std(dt), 5), sum(dt > 1.2*Ts)/len(dt)))
+        print('the following data series are available:')
         for i in range(num_cols) :
             print('\t{}:\t'.format(i) + headers[i])
 
-        time = data[headers[0]]
-        Ts = np.abs(np.mean(np.array(time[1:-1]) - np.array(time[0:-2])))
         fs = 1/Ts
         cutoff = 0.05*fs
         order = 6

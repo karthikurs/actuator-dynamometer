@@ -44,19 +44,19 @@ def adc2futek(adc, gain=1, zero_val=2.500):
 
 async def finish(c1, c2, data=None):
     if data is not None:
-        print("\nwriting data...")
+        print("writing data...")
         with open("futek_data/futek_test" + time.strftime("_%d_%m_%Y_%H-%M-%S") + ".csv","w+") as my_csv:
             csvWriter = csv.writer(my_csv,delimiter=',')
             csvWriter.writerows(data)
     
-    print("\nstopping actuators and cleaning...")
+    print("stopping actuators and cleaning...")
     await asyncio.sleep(0.1)
     await c1.set_stop()
     await c2.set_stop()
     await asyncio.sleep(0.1)
     os.system("sudo ip link set can0 down")
 
-    print("\ndone\n\n")
+    print("done.\n\n")
 
 async def main():
     parser = argparse.ArgumentParser(description='Runs dual-actuator moteus controller futek dynamometer setup')
@@ -97,6 +97,9 @@ async def main():
         help="specify how driving actuator behaves", choices=['velocity', 'current'],\
         type=str, required=True)
 
+    parser.add_argument("--fast",\
+        help="skip temp readings, only command c1",action='store_true')
+
     args = parser.parse_args()
 
     g1 = args.gear1 if args.gear1 is not None else 6.0
@@ -110,17 +113,6 @@ async def main():
     
     c1, c2, kt_1, kt_2 = await init_controllers()
 
-    n = 100
-    # tstart = time.monotonic()
-
-    # for _ in range(n):
-    #     # p1, v1, t1 = parse_reply(await c1.set_stop(query=True), g1)
-    #     # p2, v2, t2 = parse_reply(await c2.set_stop(query=True), g2)
-    #     await c1._get_transport().cycle([c.make_stop(query=True) for c in [c1, c2]])
-    # tend = time.monotonic()
-    # print("cycle command avg time: {}".format((tend-tstart)/n))
-    
-
     await c1.set_rezero()
     await c2.set_rezero()
 
@@ -130,16 +122,9 @@ async def main():
 
     zero_val = adc.read_adc(1, gain=GAIN, data_rate=DATARATE)
     zero_val = round(6.144*(2.0*zero_val/(65536)), 6)
+
+    if args.fast: adc.start_adc(1, gain=GAIN, data_rate=DATARATE)
     
-    # tstart = time.monotonic()
-    # for _ in range(n):
-    #     v = adc.read_adc(1, gain=GAIN, data_rate=DATARATE)
-    # tend = time.monotonic()
-    # print("adc read avg time: {}".format((tend-tstart)/n))
-
-    # await finish(c1, c2)
-    # return
-
     print(zero_val)
     
     t0 = time.monotonic()
@@ -196,12 +181,13 @@ async def main():
     
     pos_neg = 1 # positive or negative command
     cmd1 = 0; cmd2 = 0
-    replya = None; replyb = None
+    replya = await ca.set_stop(query=True)
+    replyb = await cb.set_stop(query=True)
 
     # parameters for stairstep command
-    max_cmd = 20   # A     or rotation Hz in velocity mode
-    hold = 4.0        # s
-    incr = 2.5      # A     or rotation Hz in velocity mode
+    max_cmd = 1.1   # A     or rotation Hz in velocity mode
+    hold = 1        # s
+    incr = 0.25      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
 
     cycle = 1
@@ -211,15 +197,18 @@ async def main():
         try:
             t = time.monotonic() - t0
 
-            # swap which side is driving
+            # Cycle input function
             if t_fcn > (max_cmd+incr)/rate:
-                ctemp = ca
-                ca = cb
-                cb = ctemp
-                orient_a_1 = not orient_a_1 # swap driving actuator
+                # Swap driving and loading actuators
+                if not args.fast:
+                    ctemp = ca
+                    ca = cb
+                    cb = ctemp
+                    orient_a_1 = not orient_a_1 # swap driving actuator
+                    print("reverse! reverse!")
                 if orient_a_1: pos_neg = -pos_neg # swap cmd sign every other cycles
                 t0_fcn = time.monotonic()
-                print("reverse! reverse!")
+                # print("cycle")
                 cycle += 1
 
             if args.duration is not None and t > args.duration:
@@ -227,11 +216,12 @@ async def main():
                 await finish(c1, c2, data)
                 return
             
+            # Setup t_fcn -- freezes when overtemp is latched
             if not overtemp: t_fcn = time.monotonic() - t0_fcn
-            # cmd = 4.0*math.sin(t)
             
             old_cmd = cmd
             freq_hz = 0
+            # Generate Command
             if args.step is not None: cmd = step_mag
             elif args.stair:
                 cmd0 = pos_neg * incr*(min(rate*(t_fcn), max_cmd)//incr)
@@ -251,38 +241,32 @@ async def main():
                 # freq_hz = min(1.0*(1.1**freq_hz), 45) # increase freq by 10% every 2 sec
                 # cmd = max_cmd*math.cos(freq_hz*np.pi*t)
             
-            # if (t//2.0) % 2 > 0: cmd = 0
-
+            # Overtemp Detection and Latch
             if min(temp1, temp2) > 45 or max(temp1, temp2) > 85 or overtemp:
-                if t % 1.0 < 0.019 or overtemp == False:
+                if t % 1.0 < 0.019 or overtemp == False and not args.fast:
                     print("over temp: temp1 = {}, temp2 = {}".format(round(temp1, 2), round(temp2, 2)))
                 # await finish(c1,c2,data)
                 # return
                 overtemp = True
                 cmd = 0.0
 
+            # Overtemp unlatch
             if min(temp1, temp2) < 40 and max(temp1, temp2) < 70 and overtemp:
                 overtemp = False
-                # t0_fcn = time.monotonic()
 
-            # if cmd != old_cmd: print("cmd = {} A".format(cmd))
-
-            # reply1 = (await c1.set_current(q_A=cmd, d_A=0.0, query=True))
-            # reply2 = (await c2.set_position(position=math.nan, velocity=0.0,\
-            #     watchdog_timeout=2.0, kp_scale=0, kd_scale=damping, query=True))
-            # reply2 = (await c2.set_position(position=0.0, velocity=0.0,\
-            #     watchdog_timeout=2.0, kp_scale=2.0, kd_scale=1.0, query=True))
-            # cmd = 0.15
-            if args.loadbehavior == 'damping' or args.loadbehavior == 'damp':
-                replyb = (await cb.set_position(position=math.nan, velocity=0,\
-                    watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
-            elif args.loadbehavior == 'stall':
-                replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
-                    watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
-            else:
-                replyb = await cb.set_stop(query=True)
+            # Load Actuator
+            if not args.fast:
+                if args.loadbehavior == 'damping' or args.loadbehavior == 'damp':
+                    replyb = (await cb.set_position(position=math.nan, velocity=0,\
+                        watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
+                elif args.loadbehavior == 'stall':
+                    replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
+                        watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
+                else:
+                    replyb = await cb.set_stop(query=True)
                 
-            if args.drivemode == 'curent':
+            # Driving Actuator
+            if args.drivemode == 'current':
                 replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
             elif args.drivemode == 'velocity':
                 replya = (await ca.set_position(position=math.nan, velocity=cmd,\
@@ -290,10 +274,8 @@ async def main():
             else:
                 cmd = 0
                 replya = await ca.set_stop(query=True)
-            # replyb = (await cb.set_current(q_A=0.0, d_A=0.0, query=True))
 
-            # replya = await ca.set_stop(query=True)
-
+            # Keep track of data
             if orient_a_1:
                 reply1 = replya
                 reply2 = replyb
@@ -305,36 +287,47 @@ async def main():
                 cmd1 = 0
                 cmd2 = cmd
 
+            # Position, velocity, torque
             p1, v1, t1 = parse_reply(reply1, g1)
             p2, v2, t2 = parse_reply(reply2, g2)
 
-            futek_torque = adc.read_adc(1, gain=GAIN, data_rate=DATARATE); futek_torque = adc2futek(futek_torque, gain=5/5)
-            temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
-            temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
+            # Read from analog sensors (torque and thermistors)
+            if not args.fast:
+                futek_torque = adc.read_adc(1, gain=GAIN, data_rate=DATARATE); futek_torque = adc2futek(futek_torque, gain=5/5)
+                temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
+                temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
+            else:
+                futek_torque = adc.get_last_result(); futek_torque = adc2futek(futek_torque, gain=5/5)
+                temp1 = 0; temp2 = 0
 
-            if t % 1.0 < 0.02: print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, t1 = {}, t2 = {}".format(\
+            if t % 1.0 < 0.02 and not args.fast: print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, t1 = {}, t2 = {}".format(\
                 round(t, 3), round(temp1, 2), round(temp2, 2), cycle, round(cmd, 4), round(t1, 3), round(t2, 3)))
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
+            # Log data
             row = [t, t_fcn] + [cmd1*g1 if args.drivemode=='velocity' else cmd1] + [cmd1*kt_1*g1] +\
                 [p1, v1, t1, t1/(kt_1*g1)] + [cmd2*g2 if args.drivemode=='velocity' else cmd2] + [cmd2*kt_2*g2] + [p2, v2, t2, t2/(kt_2*g2)]\
                 + raw_reply_list(reply1) + raw_reply_list(reply2) +\
                 [futek_torque, temp1, temp2, observed_kt]
             data.append(row)
 
+            # Torque overload protection
             if abs(t1) > ts_overload or abs(t2) > ts_overload:
                 print("torque overload detected")
                 await finish(c1, c2, data)
                 # sys.exit()
                 return
 
+            if args.fast: await asyncio.sleep(0.001)
+
         except (KeyboardInterrupt, SystemExit):
+            print("\nCaught keyboard interrupt; exiting...")
             await finish(c1, c2, data)
             # sys.exit()
             return
         except:
-            print("\n\nsomething went wrong\n\n")
+            print("\n\nUnanticipated exception: something went wrong\n\n")
             await finish(c1, c2, data)
             raise
             # sys.exit()
