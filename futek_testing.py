@@ -177,6 +177,8 @@ async def main():
     if not args.fast or args.ultrafast:
         temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
         temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
+    else:
+        temp1 = 0; temp2 = 0
     t0_fcn = t0
     ca = c1
     cb = c2
