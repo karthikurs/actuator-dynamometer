@@ -151,6 +151,29 @@ ps
 
 plot_thermal_model('futek_test_17_04_2021_16-37-13.csv', etf, ztf, true);
 
+%% Step response plotting
+
+datafile = "futek_test_28_04_2021_21-30-24.csv";
+datafile = "futek_test_28_04_2021_21-28-31.csv";
+
+data_table = readtable(datafile,'PreserveVariableNames',true);
+headers = data_table.Properties.VariableNames;
+
+time_idx = find(ismember(headers,'time [s]'));
+a1_v_idx = find(ismember(headers,'a1 velocity [rad/s]'));
+a1_q_idx = find(ismember(headers,'a1 q-axis [A]'));
+
+time = table2array(data_table(1:end, time_idx));
+a1_v = table2array(data_table(1:end, a1_v_idx));
+a1_q = table2array(data_table(1:end, a1_q_idx))*0.105;
+
+dt = abs(time - circshift(time, 1));
+Ts = median(dt)
+
+v_exp = iddata(a1_v, a1_q, Ts);
+vtf = tfest(v_exp,1,0,0);
+compare(v_exp, vtf);
+
 %% KT
 
 data_no_gb_stall_fnames_a1 = ["futek_test_23_04_2021_16-38-38.csv",
