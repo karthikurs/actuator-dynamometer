@@ -6,34 +6,33 @@ from matplotlib import pyplot as plt
 from scipy import stats
 from scipy.signal import butter, lfilter, freqz
 
-
-# https://stackoverflow.com/questions/25191620/creating-lowpass-filter-in-scipy-understanding-methods-and-units
-def butter_lowpass(cutoff, fs, order=5):
-    nyq = 0.5 * fs
-    normal_cutoff = cutoff / nyq
-    b, a = butter(order, normal_cutoff, btype='low', analog=False)
-    return b, a
-
-def butter_lowpass_filter(data, cutoff, fs, order=5):
-    b, a = butter_lowpass(cutoff, fs, order=order)
-    y = lfilter(b, a, data)
-    return y
+from utils import *
 
 rng = np.random.default_rng()
 Ts = 0.01
 N = 500
-c_ratio = 0.45
+# c_ratio = 0.05
 
 time = np.arange(0,N*Ts, Ts)
-data = rng.random(N)
-data_filt = butter_lowpass_filter(data, c_ratio/Ts, 1/Ts)
+# data = rng.random(N)
+# data_filt = butter_lowpass_filter(data, c_ratio/Ts, 1/Ts)
+
+
+GRP = GaussianRandomProcess(mean=0, amplitude=3, Ts=Ts)
+GRP.set_fc(0.1/Ts)
+data_filt = []
+data = []
+
+for ii in range(len(time)):
+    data_filt = np.append(data_filt, GRP.sample())
+    data = np.append(data, GRP.raw_sample(cycle=False))
 
 # import ipdb; ipdb.set_trace()
-
 fig = plt.figure()
 ax = fig.gca()
 
 ax.scatter(time, data)
 ax.plot(time, data_filt)
+ax.plot(time, butter_lowpass_filter(data, GRP.fc, 1/GRP.Ts))
 
 plt.show()

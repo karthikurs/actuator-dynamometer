@@ -20,27 +20,28 @@ import time
 import math
 from moteus_wrapper import *
 from kinematics import *
+from utils import *
 
 import Adafruit_ADS1x15
 
-def adc2temp(temp):
-    R0 = 100000
-    T0 = 25
+# def adc2temp(temp):
+#     R0 = 100000
+#     T0 = 25
 
-    Rf = 100000
-    V0 = 5
+#     Rf = 100000
+#     V0 = 5
 
-    Vt = round(6.144*(2.0*temp/(65536)), 6)
+#     Vt = round(6.144*(2.0*temp/(65536)), 6)
 
-    Rt = Rf*Vt / (V0 - Vt)
+#     Rt = Rf*Vt / (V0 - Vt)
 
-    temp = (1/298.15) + (1/3950)*math.log(Rt/R0)
-    return 1/temp - 273.15
+#     temp = (1/298.15) + (1/3950)*math.log(Rt/R0)
+#     return 1/temp - 273.15
 
-def adc2futek(adc, gain=1, zero_val=2.500):
-    torque = 6.144*(2.0*adc/(65536))
-    torque = -2.0*(torque-zero_val) * gain
-    return torque
+# def adc2futek(adc, gain=1, zero_val=2.500):
+#     torque = 6.144*(2.0*adc/(65536))
+#     torque = -2.0*(torque-zero_val) * gain
+#     return torque
 
 async def finish(c1, c2, data=None):
     if data is not None:
@@ -82,6 +83,8 @@ async def main():
         type=float)
     input_group.add_argument("--stair",\
         help="run stairstep input (configured in the file)",action='store_true')
+    input_group.add_argument("--grp",\
+        help="run a lowpass filtered gaussian random process (configure in file)", action='store_true')
 
     parser.add_argument("--antihysteresis",\
         help="runs anti-hysteresis pattern",action='store_true')
@@ -114,6 +117,11 @@ async def main():
     ts_gain = 0; ts_overload = 0
     if args.torquesensor == 'trd605-18': ts_gain = 18.0/5.0; ts_overload = 18
     elif args.torquesensor == 'trs605-5': ts_gain = 5.0/5.0; ts_overload = 5
+
+    Ts = 0.01
+    GRP = GaussianRandomProcess(mean=0, amplitude=3, Ts=Ts)
+    # SET GRP cutoff frequency here
+    GRP.set_fc(30)
     
     c1, c2, kt_1, kt_2 = await init_controllers()
 
@@ -200,11 +208,19 @@ async def main():
 
     cycle = 1
     t_fcn = 0
-
+    t_vec = []
+    t_old = t0
     while True:
         try:
             t = time.monotonic() - t0
-
+            dt_med = t - t_old
+            t_old = t
+            t_vec.append(t)
+            frame = min(max(len(t_vec - 2), 1), 20)
+            if frame > 1:
+                dt_vec = t_vec[-frame:] - t_vec[-frame-1:-1]
+                dt_med = np.median(dt_vec)
+            GRP.set_Ts(dt_med)
             # Cycle input function
             if t_fcn > (max_cmd+incr)/rate:
                 # Swap driving and loading actuators
@@ -230,7 +246,7 @@ async def main():
             old_cmd = cmd
             freq_hz = 0
             # Generate Command
-            if args.step is not None: cmd = step_mag
+            if args.step: cmd = step_mag
             elif args.stair:
                 cmd0 = pos_neg * incr*(min(rate*(t_fcn), max_cmd)//incr)
 
@@ -248,6 +264,8 @@ async def main():
                 # freq_hz = ((0.5*t)//1.0) # exponent
                 # freq_hz = min(1.0*(1.1**freq_hz), 45) # increase freq by 10% every 2 sec
                 # cmd = max_cmd*math.cos(freq_hz*np.pi*t)
+            elif args.grp:
+                cmd = GRP.sample()
             
             # Overtemp Detection and Latch
             if min(temp1, temp2) > 45 or max(temp1, temp2) > 85 or overtemp:
