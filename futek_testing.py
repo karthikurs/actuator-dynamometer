@@ -119,7 +119,7 @@ async def main():
     elif args.torquesensor == 'trs605-5': ts_gain = 5.0/5.0; ts_overload = 5
 
     Ts = 0.01
-    GRP = GaussianRandomProcess(mean=0, amplitude=3, Ts=Ts)
+    GRP = GaussianRandomProcess(mean=0, amplitude=5, Ts=Ts)
     # SET GRP cutoff frequency here
     GRP.set_fc(30)
     
