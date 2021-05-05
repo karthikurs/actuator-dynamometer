@@ -180,7 +180,7 @@ compare(v_exp, vtf);
 datafile1 = "futek_test_05_05_2021_13-52-50.csv";
 datafile2 = "futek_test_05_05_2021_13-58-38.csv";
 datafile3 = "futek_test_05_05_2021_14-14-46.csv";
-datafile4 = "futek_test_05_05_2021_17-35-01.csv";
+datafile4 = "futek_test_05_05_2021_17-25-40.csv";
 
 datafiles = [datafile1, datafile2, datafile3, datafile4];
 tfs = [];
@@ -205,21 +205,15 @@ for ii = 1:length(datafiles)
     Ts = median(dt)
 
     v_exp = iddata(a1_v, ts, Ts);
-    vtf = tfest(v_exp,1,0,0);
+    vtf = tfest(v_exp,1,0,0)
     tfs = [tfs, vtf];
-    Js = [Js, vtf.Denominator(1)/vtf.Numerator(1)];
-    Bs = [Bs, vtf.Denominator(2)/vtf.Numerator(1)];
+    Js = [Js, vtf
     vsp = spa(v_exp);
     figure;
     compare(v_exp, vtf);
     figure;
     bode(vsp)
 end
-
-J_ri50 = Js(2)-Js(3)
-J_ex8 = Js(4)-Js(3)
-B_ri50 = Bs(2)-Bs(3)
-B_ex8 = Bs(4)-Bs(3)
 %% KT
 
 % data_no_gb_stall_fnames_a1 = ["futek_test_23_04_2021_16-38-38.csv",
