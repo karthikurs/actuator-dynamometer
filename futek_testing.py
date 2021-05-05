@@ -208,18 +208,20 @@ async def main():
 
     cycle = 1
     t_fcn = 0
-    t_vec = []
+    t_vec = np.array([])
     t_old = t0
     while True:
         try:
             t = time.monotonic() - t0
             dt_med = t - t_old
             t_old = t
-            t_vec.append(t)
-            frame = min(max(len(t_vec - 2), 1), 20)
+            np.append(t_vec,t)
+            frame = min(max(len(t_vec) - 2, 1), 20)
             if frame > 1:
                 dt_vec = t_vec[-frame:] - t_vec[-frame-1:-1]
                 dt_med = np.median(dt_vec)
+            else:
+                dt_med = 0.005
             GRP.set_Ts(dt_med)
             # Cycle input function
             if t_fcn > (max_cmd+incr)/rate:
@@ -265,7 +267,7 @@ async def main():
                 # freq_hz = min(1.0*(1.1**freq_hz), 45) # increase freq by 10% every 2 sec
                 # cmd = max_cmd*math.cos(freq_hz*np.pi*t)
             elif args.grp:
-                cmd = GRP.sample()
+                cmd = GRP.sample()[0]
             
             # Overtemp Detection and Latch
             if min(temp1, temp2) > 45 or max(temp1, temp2) > 85 or overtemp:
