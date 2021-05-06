@@ -155,8 +155,9 @@ plot_thermal_model('futek_test_27_04_2021_15-46-08.csv', etf, ztf, true, true);
 
 %% Step response plotting
 
-datafile1 = "futek_test_28_04_2021_21-30-24.csv";
-datafile1 = "futek_test_28_04_2021_21-28-31.csv";
+datafile = "futek_test_28_04_2021_21-30-24.csv";
+datafile = "futek_test_28_04_2021_21-28-31.csv";
+datafile = "futek_test_28_04_2021_22-11-23.csv";
 
 data_table = readtable(datafile1,'PreserveVariableNames',true);
 headers = data_table.Properties.VariableNames;
@@ -164,28 +165,47 @@ headers = data_table.Properties.VariableNames;
 time_idx = find(ismember(headers,'time [s]'));
 a1_v_idx = find(ismember(headers,'a1 velocity [rad/s]'));
 a1_q_idx = find(ismember(headers,'a1 q-axis [A]'));
+ts_idx = find(ismember(headers,'trs605-5 torque [Nm]'));
 
 time = table2array(data_table(1:end, time_idx));
 a1_v = table2array(data_table(1:end, a1_v_idx));
 a1_q = table2array(data_table(1:end, a1_q_idx))*0.105;
+ts = table2array(data_table(1:end, ts_idx));
+
 
 dt = abs(time - circshift(time, 1));
 Ts = median(dt)
+ts = lowpass(ts, 1, 1/Ts);
+a1_v = lowpass(a1_v, 1, 1/Ts);
 
-v_exp = iddata(a1_v, a1_q, Ts);
-vtf = tfest(v_exp,1,0,0);
-compare(v_exp, vtf);
+% v_exp = iddata(a1_v, a1_q, Ts);
+% vtf = tfest(v_exp,1,0,0);
+% compare(v_exp, vtf);
+
+damping_exp = iddata(a1_v, ts, Ts);
+tfopt = tfestOptions('InitialCondition','zero');
+dtf = tfest(damping_exp, 1, 0, 0, tfopt)
+figure;
+compare(damping_exp, dtf);
 
 %% Gaussian Random Process
-datafile1 = "futek_test_05_05_2021_13-52-50.csv";
-datafile2 = "futek_test_05_05_2021_13-58-38.csv";
-datafile3 = "futek_test_05_05_2021_14-14-46.csv";
-datafile4 = "futek_test_05_05_2021_17-25-40.csv";
+ri50_noback = "futek_test_05_05_2021_13-52-50.csv";
+% ri50_back = "futek_test_05_05_2021_13-58-38.csv";
+ri50_back = "futek_test_06_05_2021_14-41-24.csv";
+% no_act = "futek_test_05_05_2021_14-14-46.csv";
+no_act = "futek_test_06_05_2021_14-18-34.csv";
+no_steel = "futek_test_06_05_2021_14-21-05.csv";
+% ex8 = "futek_test_05_05_2021_17-35-01.csv";
+ex8 = "futek_test_06_05_2021_14-07-32.csv";
 
-datafiles = [datafile1, datafile2, datafile3, datafile4];
+datafiles = [no_act, ri50_back, ex8, no_steel];
+titles = ["No Actuator", "RI50", "EX8", "No Steel"];
 tfs = [];
 Js = [];
 Bs = [];
+vafs=[];
+figure;
+hold on;
 for ii = 1:length(datafiles)
     datafile = datafiles(ii);
     data_table = readtable(datafile,'PreserveVariableNames',true);
@@ -203,17 +223,40 @@ for ii = 1:length(datafiles)
 
     dt = abs(time - circshift(time, 1));
     Ts = median(dt)
+    
+    ratio = 0.5
+    
+    a1_v = resample(a1_v, time, 0.8/Ts);
+    a1_q = resample(a1_q, time, 0.8/Ts);
+    ts = resample(ts, time, 0.8/Ts);
+%     ts = lowpass(ts, 21, 1/Ts, 'Steepness', 0.99);
+%     a1_v = lowpass(a1_v, 21, 1/Ts, 'Steepness', 0.99);
 
-    v_exp = iddata(a1_v, ts, Ts);
-    vtf = tfest(v_exp,1,0,0)
+    v_exp = iddata(a1_v, ts, Ts/0.8);
+    vtf = tfest(v_exp,1,0,0);
+%     if ii==1
+%          vtf = tfest(v_exp, 2, 1, 0);
+%     end
     tfs = [tfs, vtf];
-    Js = [Js, vtf
+    Js = [Js, vtf.Denominator(1)/vtf.Numerator(1)];
+    Bs = [Bs, vtf.Denominator(2)/vtf.Numerator(1)];
     vsp = spa(v_exp);
-    figure;
-    compare(v_exp, vtf);
-    figure;
+%     figure;
+    [yfit, fit, ic] = compare(v_exp, vtf);
+    vafs = [vafs, vaf(v_exp.OutputData, yfit.OutputData)];
+    subplot(2,2,ii)
+    hold on
     bode(vsp)
+    bode(vtf)
+    title(sprintf("%s, NRMSE: %f, VAF: %f", titles(ii), fit, vafs(ii)));
+    hold off
 end
+hold off;
+
+J_ri50 = Js(2)-Js(1)
+J_ex8 = Js(3)-Js(1)
+B_ri50 = Bs(2)-Bs(1)
+B_ex8 = Bs(3)-Bs(1)
 %% KT
 
 % data_no_gb_stall_fnames_a1 = ["futek_test_23_04_2021_16-38-38.csv",
@@ -520,6 +563,26 @@ legend('Location','Best')
 xlabel('Rotational Velocity $(\omega)$ [rad/s]');
 ylabel('Torque $(\tau)$ [Nm]');
 hold off;
+
+function v = vaf(y, y_est)
+
+    % Variance Accounted For (VAF) | Percentage value (%)
+    %
+    % v = vaf(y, y_est)
+    %
+    % y     : measured output (real)
+    % y_est : estimated output
+    %
+    
+    v = var(y - y_est) / var(y) ;
+    v = 100 * ( 1 - v );
+    
+    if ( v < 0 )
+        v = 0;
+    end
+
+end
+
 
 function [p, x, y, est] = polynom_fit(x, y, order)
     p = polyfit(x, y, order);

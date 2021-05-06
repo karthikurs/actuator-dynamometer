@@ -189,15 +189,31 @@ figure;
 compare(damping_exp, dtf);
 
 %% Gaussian Random Process
-datafile1 = "futek_test_05_05_2021_13-52-50.csv";
-datafile2 = "futek_test_05_05_2021_13-58-38.csv";
-datafile3 = "futek_test_05_05_2021_14-14-46.csv";
-datafile4 = "futek_test_05_05_2021_17-35-01.csv";
+set(0, 'DefaultTextInterpreter', 'latex');
+set(0, 'DefaultLegendInterpreter', 'latex');
+set(0, 'DefaultAxesTickLabelInterpreter', 'latex');
 
-datafiles = [datafile1, datafile2, datafile3, datafile4];
+ri50_noback = "futek_test_05_05_2021_13-52-50.csv";
+% ri50_back = "futek_test_05_05_2021_13-58-38.csv";
+% ri50_back = "futek_test_06_05_2021_14-41-24.csv";
+ri50_back = "futek_test_06_05_2021_17-09-17.csv";
+% no_act = "futek_test_05_05_2021_14-14-46.csv";
+% no_act = "futek_test_06_05_2021_14-18-34.csv";
+no_act = "futek_test_06_05_2021_17-03-23.csv";
+no_steel = "futek_test_06_05_2021_14-21-05.csv";
+% ex8 = "futek_test_05_05_2021_17-35-01.csv";
+% ex8 = "futek_test_06_05_2021_14-07-32.csv";
+ex8 = "futek_test_06_05_2021_17-22-41.csv";
+
+datafiles = [no_act, ri50_back, ex8];
+titles = ["No Actuator", "RI50", "EX8"];
 tfs = [];
 Js = [];
 Bs = [];
+v_vafs=[];
+q_vafs=[];
+figure;
+hold on;
 for ii = 1:length(datafiles)
     datafile = datafiles(ii);
     data_table = readtable(datafile,'PreserveVariableNames',true);
@@ -215,23 +231,52 @@ for ii = 1:length(datafiles)
 
     dt = abs(time - circshift(time, 1));
     Ts = median(dt)
+    
+    ratio = 0.9;
+    
+    a1_v = resample(a1_v, time, ratio/Ts, 'pchip');
+    a1_q = resample(a1_q, time, ratio/Ts, 'pchip');
+    ts = resample(ts, time, ratio/Ts, 'pchip');
+%     ts = lowpass(ts, 21, 1/Ts, 'Steepness', 0.99);
+%     a1_v = lowpass(a1_v, 21, 1/Ts, 'Steepness', 0.99);
 
-    v_exp = iddata(a1_v, ts, Ts);
+    opts = tfestOptions('WeightingFilter',[5.28, 668]);
+    v_exp = iddata(a1_v, ts, Ts/ratio);
+    q_exp = iddata(a1_v, a1_q, Ts/ratio);
     vtf = tfest(v_exp,1,0,0);
+    qtf = tfest(q_exp,1,0,0);
+%     if ii==1 || ii==4
+%          vtf = tfest(v_exp, 2, 1, 0, opts);
+%          qtf = tfest(q_exp, 2, 1, 0, opts);
+%     end
     tfs = [tfs, vtf];
-    Js = [Js, vtf.Denominator(1)/vtf.Numerator(1)];
-    Bs = [Bs, vtf.Denominator(2)/vtf.Numerator(1)];
+    Js = [Js, qtf.Denominator(1)/qtf.Numerator(1)];
+    Bs = [Bs, qtf.Denominator(2)/qtf.Numerator(1)];
     vsp = spa(v_exp);
-    figure;
-    compare(v_exp, vtf);
-    figure;
-    bode(vsp)
+    qsp = spa(q_exp);
+%     figure;
+    [Yvfit, vfit, ic] = compare(v_exp, vtf);
+    [Yqfit, qfit, ic] = compare(q_exp, qtf);
+    v_vafs = [v_vafs, vaf(v_exp.OutputData, Yvfit.OutputData)];
+    q_vafs = [q_vafs, vaf(q_exp.OutputData, Yqfit.OutputData)];
+    subplot(1,length(datafiles),ii)
+    hold on
+    bode(qsp)
+    bode(qtf)
+    title(sprintf("%s, VAF: %.2f%%", titles(ii), q_vafs(ii)));
+    legend(["moteus data","moteus est"],'location','southwest');
+    hold off
 end
 
-J_ri50 = Js(2)-Js(3)
-J_ex8 = Js(4)-Js(3)
-B_ri50 = Bs(2)-Bs(3)
-B_ex8 = Bs(4)-Bs(3)
+J_ri50 = Js(2)-Js(1)
+J_ex8 = Js(3)-Js(1)
+B_ri50 = Bs(2)-Bs(1)
+B_ex8 = Bs(3)-Bs(1)
+
+% sgtitle(sprintf("RI50 Inertia = %.3e kgm^2, Damping = %.3e Nms/rad; EX8 Inertia = %.3e kgm^2, Damping = %.3e Nms/rad",...
+%     J_ri50, B_ri50, J_ex8, B_ex8));
+
+hold off;
 %% KT
 
 % data_no_gb_stall_fnames_a1 = ["futek_test_23_04_2021_16-38-38.csv",
@@ -538,6 +583,26 @@ legend('Location','Best')
 xlabel('Rotational Velocity $(\omega)$ [rad/s]');
 ylabel('Torque $(\tau)$ [Nm]');
 hold off;
+
+function v = vaf(y, y_est)
+
+    % Variance Accounted For (VAF) | Percentage value (%)
+    %
+    % v = vaf(y, y_est)
+    %
+    % y     : measured output (real)
+    % y_est : estimated output
+    %
+    
+    v = var(y - y_est) / var(y) ;
+    v = 100 * ( 1 - v );
+    
+    if ( v < 0 )
+        v = 0;
+    end
+
+end
+
 
 function [p, x, y, est] = polynom_fit(x, y, order)
     p = polyfit(x, y, order);
