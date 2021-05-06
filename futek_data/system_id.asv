@@ -155,9 +155,8 @@ plot_thermal_model('futek_test_27_04_2021_15-46-08.csv', etf, ztf, true, true);
 
 %% Step response plotting
 
-datafile = "futek_test_28_04_2021_21-30-24.csv";
-datafile = "futek_test_28_04_2021_21-28-31.csv";
-datafile = "futek_test_28_04_2021_22-11-23.csv";
+datafile1 = "futek_test_28_04_2021_21-30-24.csv";
+datafile1 = "futek_test_28_04_2021_21-28-31.csv";
 
 data_table = readtable(datafile1,'PreserveVariableNames',true);
 headers = data_table.Properties.VariableNames;
@@ -165,34 +164,23 @@ headers = data_table.Properties.VariableNames;
 time_idx = find(ismember(headers,'time [s]'));
 a1_v_idx = find(ismember(headers,'a1 velocity [rad/s]'));
 a1_q_idx = find(ismember(headers,'a1 q-axis [A]'));
-ts_idx = find(ismember(headers,'trs605-5 torque [Nm]'));
 
 time = table2array(data_table(1:end, time_idx));
 a1_v = table2array(data_table(1:end, a1_v_idx));
 a1_q = table2array(data_table(1:end, a1_q_idx))*0.105;
-ts = table2array(data_table(1:end, ts_idx));
-
 
 dt = abs(time - circshift(time, 1));
 Ts = median(dt)
-ts = lowpass(ts, 1, 1/Ts);
-a1_v = lowpass(a1_v, 1, 1/Ts);
 
-% v_exp = iddata(a1_v, a1_q, Ts);
-% vtf = tfest(v_exp,1,0,0);
-% compare(v_exp, vtf);
-
-damping_exp = iddata(a1_v, ts, Ts);
-tfopt = tfestOptions('InitialCondition','zero');
-dtf = tfest(damping_exp, 1, 0, 0, tfopt)
-figure;
-compare(damping_exp, dtf);
+v_exp = iddata(a1_v, a1_q, Ts);
+vtf = tfest(v_exp,1,0,0);
+compare(v_exp, vtf);
 
 %% Gaussian Random Process
 datafile1 = "futek_test_05_05_2021_13-52-50.csv";
 datafile2 = "futek_test_05_05_2021_13-58-38.csv";
 datafile3 = "futek_test_05_05_2021_14-14-46.csv";
-datafile4 = "futek_test_05_05_2021_17-35-01.csv";
+datafile4 = "futek_test_05_05_2021_17-25-40.csv";
 
 datafiles = [datafile1, datafile2, datafile3, datafile4];
 tfs = [];
@@ -217,21 +205,15 @@ for ii = 1:length(datafiles)
     Ts = median(dt)
 
     v_exp = iddata(a1_v, ts, Ts);
-    vtf = tfest(v_exp,1,0,0);
+    vtf = tfest(v_exp,1,0,0)
     tfs = [tfs, vtf];
-    Js = [Js, vtf.Denominator(1)/vtf.Numerator(1)];
-    Bs = [Bs, vtf.Denominator(2)/vtf.Numerator(1)];
+    Js = [Js, vtf
     vsp = spa(v_exp);
     figure;
     compare(v_exp, vtf);
     figure;
     bode(vsp)
 end
-
-J_ri50 = Js(2)-Js(3)
-J_ex8 = Js(4)-Js(3)
-B_ri50 = Bs(2)-Bs(3)
-B_ex8 = Bs(4)-Bs(3)
 %% KT
 
 % data_no_gb_stall_fnames_a1 = ["futek_test_23_04_2021_16-38-38.csv",
