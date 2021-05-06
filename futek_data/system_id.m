@@ -155,8 +155,9 @@ plot_thermal_model('futek_test_27_04_2021_15-46-08.csv', etf, ztf, true, true);
 
 %% Step response plotting
 
-datafile1 = "futek_test_28_04_2021_21-30-24.csv";
-datafile1 = "futek_test_28_04_2021_21-28-31.csv";
+datafile = "futek_test_28_04_2021_21-30-24.csv";
+datafile = "futek_test_28_04_2021_21-28-31.csv";
+datafile = "futek_test_28_04_2021_22-11-23.csv";
 
 data_table = readtable(datafile1,'PreserveVariableNames',true);
 headers = data_table.Properties.VariableNames;
@@ -164,17 +165,28 @@ headers = data_table.Properties.VariableNames;
 time_idx = find(ismember(headers,'time [s]'));
 a1_v_idx = find(ismember(headers,'a1 velocity [rad/s]'));
 a1_q_idx = find(ismember(headers,'a1 q-axis [A]'));
+ts_idx = find(ismember(headers,'trs605-5 torque [Nm]'));
 
 time = table2array(data_table(1:end, time_idx));
 a1_v = table2array(data_table(1:end, a1_v_idx));
 a1_q = table2array(data_table(1:end, a1_q_idx))*0.105;
+ts = table2array(data_table(1:end, ts_idx));
+
 
 dt = abs(time - circshift(time, 1));
 Ts = median(dt)
+ts = lowpass(ts, 1, 1/Ts);
+a1_v = lowpass(a1_v, 1, 1/Ts);
 
-v_exp = iddata(a1_v, a1_q, Ts);
-vtf = tfest(v_exp,1,0,0);
-compare(v_exp, vtf);
+% v_exp = iddata(a1_v, a1_q, Ts);
+% vtf = tfest(v_exp,1,0,0);
+% compare(v_exp, vtf);
+
+damping_exp = iddata(a1_v, ts, Ts);
+tfopt = tfestOptions('InitialCondition','zero');
+dtf = tfest(damping_exp, 1, 0, 0, tfopt)
+figure;
+compare(damping_exp, dtf);
 
 %% Gaussian Random Process
 datafile1 = "futek_test_05_05_2021_13-52-50.csv";
