@@ -189,15 +189,31 @@ figure;
 compare(damping_exp, dtf);
 
 %% Gaussian Random Process
-datafile1 = "futek_test_05_05_2021_13-52-50.csv";
-datafile2 = "futek_test_05_05_2021_13-58-38.csv";
-datafile3 = "futek_test_05_05_2021_14-14-46.csv";
-datafile4 = "futek_test_05_05_2021_17-35-01.csv";
+set(0, 'DefaultTextInterpreter', 'latex');
+set(0, 'DefaultLegendInterpreter', 'latex');
+set(0, 'DefaultAxesTickLabelInterpreter', 'latex');
 
-datafiles = [datafile1, datafile2, datafile3, datafile4];
+ri50_noback = "futek_test_05_05_2021_13-52-50.csv";
+% ri50_back = "futek_test_05_05_2021_13-58-38.csv";
+% ri50_back = "futek_test_06_05_2021_14-41-24.csv";
+ri50_back = "futek_test_06_05_2021_17-09-17.csv";
+% no_act = "futek_test_05_05_2021_14-14-46.csv";
+% no_act = "futek_test_06_05_2021_14-18-34.csv";
+no_act = "futek_test_06_05_2021_17-03-23.csv";
+no_steel = "futek_test_06_05_2021_14-21-05.csv";
+% ex8 = "futek_test_05_05_2021_17-35-01.csv";
+% ex8 = "futek_test_06_05_2021_14-07-32.csv";
+ex8 = "futek_test_06_05_2021_17-22-41.csv";
+
+datafiles = [no_act, ri50_back, ex8];
+titles = ["No Actuator", "RI50", "EX8"];
 tfs = [];
 Js = [];
 Bs = [];
+v_vafs=[];
+q_vafs=[];
+figure;
+hold on;
 for ii = 1:length(datafiles)
     datafile = datafiles(ii);
     data_table = readtable(datafile,'PreserveVariableNames',true);
@@ -215,23 +231,52 @@ for ii = 1:length(datafiles)
 
     dt = abs(time - circshift(time, 1));
     Ts = median(dt)
+    
+    ratio = 0.9;
+    
+    a1_v = resample(a1_v, time, ratio/Ts, 'pchip');
+    a1_q = resample(a1_q, time, ratio/Ts, 'pchip');
+    ts = resample(ts, time, ratio/Ts, 'pchip');
+%     ts = lowpass(ts, 21, 1/Ts, 'Steepness', 0.99);
+%     a1_v = lowpass(a1_v, 21, 1/Ts, 'Steepness', 0.99);
 
-    v_exp = iddata(a1_v, ts, Ts);
+    opts = tfestOptions('WeightingFilter',[5.28, 668]);
+    v_exp = iddata(a1_v, ts, Ts/ratio);
+    q_exp = iddata(a1_v, a1_q, Ts/ratio);
     vtf = tfest(v_exp,1,0,0);
+    qtf = tfest(q_exp,1,0,0);
+%     if ii==1 || ii==4
+%          vtf = tfest(v_exp, 2, 1, 0, opts);
+%          qtf = tfest(q_exp, 2, 1, 0, opts);
+%     end
     tfs = [tfs, vtf];
-    Js = [Js, vtf.Denominator(1)/vtf.Numerator(1)];
-    Bs = [Bs, vtf.Denominator(2)/vtf.Numerator(1)];
+    Js = [Js, qtf.Denominator(1)/qtf.Numerator(1)];
+    Bs = [Bs, qtf.Denominator(2)/qtf.Numerator(1)];
     vsp = spa(v_exp);
-    figure;
-    compare(v_exp, vtf);
-    figure;
-    bode(vsp)
+    qsp = spa(q_exp);
+%     figure;
+    [Yvfit, vfit, ic] = compare(v_exp, vtf);
+    [Yqfit, qfit, ic] = compare(q_exp, qtf);
+    v_vafs = [v_vafs, vaf(v_exp.OutputData, Yvfit.OutputData)];
+    q_vafs = [q_vafs, vaf(q_exp.OutputData, Yqfit.OutputData)];
+    subplot(1,length(datafiles),ii)
+    hold on
+    bode(qsp)
+    bode(qtf)
+    title(sprintf("%s, VAF: %.2f%%", titles(ii), q_vafs(ii)));
+    legend(["moteus data","moteus est"],'location','southwest');
+    hold off
 end
 
-J_ri50 = Js(2)-Js(3)
-J_ex8 = Js(4)-Js(3)
-B_ri50 = Bs(2)-Bs(3)
-B_ex8 = Bs(4)-Bs(3)
+J_ri50 = Js(2)-Js(1)
+J_ex8 = Js(3)-Js(1)
+B_ri50 = Bs(2)-Bs(1)
+B_ex8 = Bs(3)-Bs(1)
+
+% sgtitle(sprintf("RI50 Inertia = %.3e kgm^2, Damping = %.3e Nms/rad; EX8 Inertia = %.3e kgm^2, Damping = %.3e Nms/rad",...
+%     J_ri50, B_ri50, J_ex8, B_ex8));
+
+hold off;
 %% KT
 
 % data_no_gb_stall_fnames_a1 = ["futek_test_23_04_2021_16-38-38.csv",
@@ -260,7 +305,9 @@ data_no_gb_damp_fnames_a2 = ["futek_test_23_04_2021_19-16-12.csv",
 datafiles = ["futek_test_23_04_2021_16-38-38.csv"];
 datafiles = data_no_gb_stall_fnames_a1;
 
-alpha = 0.15;
+condense = false;
+
+alpha = 0.75;
 
 figure;
 for kk = 1:4
@@ -335,15 +382,27 @@ for kk = 1:4
         a2_q_meas_oall = [a2_q_meas_oall; a2_q_meas];
         trd_oall = [trd_oall; trd];
         
+        x1 = a1_q_meas(a1_driving_idx_mask); y1 = trd(a1_driving_idx_mask);
+        x2 = a1_q_meas(a1_driven_idx_mask); y2 = trd(a1_driven_idx_mask);
+        x3 = a2_q_meas(a2_driving_idx_mask); y3 = trd(a2_driving_idx_mask);
+        x4 = a2_q_meas(a2_driven_idx_mask); y4 = trd(a2_driven_idx_mask);
+        
+        if condense
+            [x1,y1] = condense_data(x1, y1, a1_q_cmd(a1_driving_idx_mask));
+            [x2,y2] = condense_data(x2, y2, a2_q_cmd(a2_driving_idx_mask));
+            [x3,y3] = condense_data(x3, y3, a2_q_cmd(a2_driving_idx_mask));
+            [x4,y4] = condense_data(x4, y4, a1_q_cmd(a1_driving_idx_mask));
+        end
+        
         subplot(2,2,1);
         hold on
-        s = scatter(a1_q_meas(a1_driving_idx_mask), trd(a1_driving_idx_mask),...
+        s = scatter(x1, y1,...
             '+','MarkerEdgeColor', color_grey, 'DisplayName',char(['\verb|',char(datafile1),'|, a1 driving']),...
             'HandleVisibility','off');
         s.MarkerFaceAlpha = alpha;
         s.MarkerEdgeAlpha = alpha;
         
-        s = scatter(a1_q_meas(a1_driven_idx_mask), trd(a1_driven_idx_mask),...
+        s = scatter(x2, y2,...
             'o','MarkerEdgeColor', color_r, 'DisplayName',char(['\verb|',char(datafile1),'|, a1 driven']),...
             'HandleVisibility','off');
         s.MarkerFaceAlpha = alpha;
@@ -355,13 +414,13 @@ for kk = 1:4
         
         subplot(2,2,2)
         hold on
-        s = scatter(a2_q_meas(a2_driving_idx_mask), trd(a2_driving_idx_mask),...
+        s = scatter(x3, y3,...
             '+','MarkerEdgeColor', color_grey, 'DisplayName',char(['\verb|',char(datafile1),'|, a2 driving']),...
             'HandleVisibility','off');
         s.MarkerFaceAlpha = alpha;
         s.MarkerEdgeAlpha = alpha;
         
-        s = scatter(a2_q_meas(a2_driven_idx_mask), trd(a2_driven_idx_mask),...
+        s = scatter(x4, y4,...
             'o','MarkerEdgeColor', color_r, 'DisplayName',char(['\verb|',char(datafile1),'|, a2 driven']),...
             'HandleVisibility','off');
         s.MarkerFaceAlpha = alpha;
@@ -373,13 +432,13 @@ for kk = 1:4
         
         subplot(2,2,3);
         hold on
-        s = scatter(a1_q_meas(a1_driving_idx_mask), trd(a1_driving_idx_mask),...
+        s = scatter(x1, y1,...
             '+','MarkerEdgeColor', color_grey, 'DisplayName',char(['\verb|',char(datafile1),'|, a1 driving']),...
             'HandleVisibility','off');
         s.MarkerFaceAlpha = alpha;
         s.MarkerEdgeAlpha = alpha;
         
-        s = scatter(a1_q_meas(a1_driven_idx_mask), trd(a1_driven_idx_mask),...
+        s = scatter(x2, y2,...
             'o','MarkerEdgeColor', color_r, 'DisplayName',char(['\verb|',char(datafile1),'|, a1 driven']),...
             'HandleVisibility','off');
         s.MarkerFaceAlpha = alpha;
@@ -391,13 +450,13 @@ for kk = 1:4
         
         subplot(2,2,4)
         hold on
-        s = scatter(a2_q_meas(a2_driving_idx_mask), trd(a2_driving_idx_mask),...
+        s = scatter(x3, y3,...
             '+','MarkerEdgeColor', color_grey, 'DisplayName',char(['\verb|',char(datafile1),'|, a2 driving']),...
             'HandleVisibility','off');
         s.MarkerFaceAlpha = alpha;
         s.MarkerEdgeAlpha = alpha;
         
-        s = scatter(a2_q_meas(a2_driven_idx_mask), trd(a2_driven_idx_mask),...
+        s = scatter(x4, y4,...
             'o','MarkerEdgeColor', color_r, 'DisplayName',char(['\verb|',char(datafile1),'|, a2 driven']),...
             'HandleVisibility','off');
         s.MarkerFaceAlpha = alpha;
@@ -420,8 +479,6 @@ for kk = 1:4
     
     a1_driven_idx_mask = a2_driving_idx_mask; a2_driven_idx_mask = a1_driving_idx_mask;
     
-    
-    
     %
     x_a1_driving = a1_q_meas_oall(a1_driving_idx_mask); y_a1_driving = trd_oall(a1_driving_idx_mask);
     [x_a1_driving,sortIdx] = sort(x_a1_driving,'ascend'); y_a1_driving = y_a1_driving(sortIdx);
@@ -435,14 +492,26 @@ for kk = 1:4
     x_a2_driven = a2_q_meas_oall(a2_driven_idx_mask); y_a2_driven = trd_oall(a2_driven_idx_mask);
     [x_a2_driven,sortIdx] = sort(x_a2_driven,'ascend'); y_a2_driven = y_a2_driven(sortIdx);
     %
+    
+    x1 = x_a1_driving; y1 = y_a1_driving;
+    x2 = x_a2_driving; y2 = y_a2_driving;
+    x3 = x_a1_driven; y3 = y_a1_driven;
+    x4 = x_a2_driven; y4 = y_a2_driven;
+
+    if condense
+        [x1,y1] = condense_data(x1, y1, a1_q_cmd_oall(a1_driving_idx_mask));
+        [x2,y2] = condense_data(x2, y2, a2_q_cmd_oall(a2_driving_idx_mask));
+        [x3,y3] = condense_data(x3, y3, a2_q_cmd_oall(a2_driving_idx_mask));
+        [x4,y4] = condense_data(x4, y4, a1_q_cmd_oall(a1_driving_idx_mask));
+    end
 
     subplot(2,2,1); hold on
     
-    x = x_a1_driving; y = y_a1_driving; order = 1;
+    x = x1; y = y1; order = 1;
     [p, x, y, est] = polynom_fit(x, y, order);
     plot(x, est,'k-','LineWidth',2,'DisplayName',sprintf("%s a1 Driving, $\\tau = %.3f i_q + %.3f$", label, p(1),p(2)));
     
-    x = x_a1_driven; y = y_a1_driven;
+    x = x3; y = y3;
     [p, x, y, est] = polynom_fit(x, y, order);
     plot(x, est,'r-','LineWidth',2,'DisplayName',sprintf("%s a1 Driven, $\\tau = %.3f i_q + %.3f$", label, p(1),p(2)));
     
@@ -451,11 +520,11 @@ for kk = 1:4
     %
     subplot(2,2,2); hold on
     
-    x = x_a2_driving; y = y_a2_driving;
+    x = x2; y = y2;
     [p, x, y, est] = polynom_fit(x, y, order);
     plot(x, est,'k-','LineWidth',2,'DisplayName',sprintf("%s a2 Driving, $\\tau = %.3f i_q + %.3f$", label, p(1),p(2)));
     
-    x = x_a2_driven; y = y_a2_driven;
+    x = x4; y = x4;
     [p, x, y, est] = polynom_fit(x, y, order);
     plot(x, est,'r-','LineWidth',2,'DisplayName',sprintf("%s a2 Driven, $\\tau = %.3f i_q + %.3f$", label, p(1),p(2)));
     
@@ -463,12 +532,12 @@ for kk = 1:4
     hold off
     %
     subplot(2,2,3); hold on
-    x = x_a1_driving; y = y_a1_driving; order = 3;
+    x = x1; y = y1; order = 3;
     [p, x, y, est] = polynom_fit(x, y, order);
     plot(x, est,'k:','LineWidth',2,'DisplayName',...
         sprintf("%s a1 Driving, $\\tau = %.3f i_q^3 + %.3f i_q^2 + %.3f i_q + %.3f$", label, p(1),p(2),p(3),p(4)));
     
-    x = x_a1_driven; y = y_a1_driven;
+    x = x3; y = y3;
     [p, x, y, est] = polynom_fit(x, y, order);
     plot(x, est,'r:','LineWidth',2,'DisplayName',...
         sprintf("%s a1 Driven, $\\tau = %.3f i_q^3 + %.3f i_q^2 + %.3f i_q + %.3f$", label, p(1),p(2),p(3),p(4)));
@@ -478,12 +547,12 @@ for kk = 1:4
     %
     subplot(2,2,4); hold on
     
-    x = x_a2_driving; y = y_a2_driving;
+    x = x2; y = y2;
     [p, x, y, est] = polynom_fit(x, y, order);
     plot(x, est,'k:','LineWidth',2,'DisplayName',...
         sprintf("%s a2 Driving, $\\tau = %.3f i_q^3 + %.3f i_q^2 + %.3f i_q + %.3f$", label, p(1),p(2),p(3),p(4)));
     
-    x = x_a2_driven; y = y_a2_driven;
+    x = x4; y = y4;
     [p, x, y, est] = polynom_fit(x, y, order);
     plot(x, est,'r:','LineWidth',2,'DisplayName',...
         sprintf("%s a2 Driven, $\\tau = %.3f i_q^3 + %.3f i_q^2 + %.3f i_q + %.3f$", label, p(1),p(2),p(3),p(4)));    
@@ -538,6 +607,40 @@ legend('Location','Best')
 xlabel('Rotational Velocity $(\omega)$ [rad/s]');
 ylabel('Torque $(\tau)$ [Nm]');
 hold off;
+
+function [q_cond, t_cond] = condense_data(q_meas, t_meas, q_cmd)
+    cmds = unique(q_cmd);
+    q_cond = cmds;
+    t_cond = cmds;
+    
+    for ii = 1:length(cmds)
+        mask = q_cmd == cmds(ii);
+        q_meas_local = q_meas(mask);
+        t_meas_local = t_meas(mask);
+        q_cond(ii) = mean(q_meas_local);
+        t_cond(ii) = mean(t_meas_local);
+    end
+end
+
+function v = vaf(y, y_est)
+
+    % Variance Accounted For (VAF) | Percentage value (%)
+    %
+    % v = vaf(y, y_est)
+    %
+    % y     : measured output (real)
+    % y_est : estimated output
+    %
+    
+    v = var(y - y_est) / var(y) ;
+    v = 100 * ( 1 - v );
+    
+    if ( v < 0 )
+        v = 0;
+    end
+
+end
+
 
 function [p, x, y, est] = polynom_fit(x, y, order)
     p = polyfit(x, y, order);
