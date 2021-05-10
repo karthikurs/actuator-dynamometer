@@ -118,16 +118,6 @@ async def main():
     if args.torquesensor == 'trd605-18': ts_gain = 18.0/5.0; ts_overload = 18
     elif args.torquesensor == 'trs605-5': ts_gain = 5.0/5.0; ts_overload = 5
 
-    Ts = 0.01
-    GRP = GaussianRandomProcess(mean=0, amplitude=8, Ts=Ts)
-    # SET GRP cutoff frequency here
-    GRP.set_fc(30)
-    
-    c1, c2, kt_1, kt_2 = await init_controllers()
-
-    await c1.set_rezero()
-    await c2.set_rezero()
-
     adc = Adafruit_ADS1x15.ADS1115()
     GAIN = 2.0/3.0
     DATARATE = 860
@@ -137,6 +127,10 @@ async def main():
 
     if args.fast: adc.start_adc(1, gain=GAIN, data_rate=DATARATE)
     
+    c1, c2, kt_1, kt_2 = await init_controllers()
+
+    await c1.set_rezero()
+    await c2.set_rezero()
     print(zero_val)
     
     t0 = time.monotonic()
@@ -188,8 +182,7 @@ async def main():
     else:
         temp1 = 0; temp2 = 0
     t0_fcn = t0
-    ca = c1
-    cb = c2
+    ca = c1; cb = c2
     orient_a_1 = True # True when a1 is driving
     # ca = c2
     # cb = c1
@@ -205,11 +198,18 @@ async def main():
     hold = 1        # s
     incr = 0.25      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
+    
+    Ts = 0.01
+    GRP = GaussianRandomProcess(mean=0, amplitude=8, Ts=Ts)
+    # SET GRP cutoff frequency here
+    GRP.set_fc(40)
+    grp_tstart = 10
 
     cycle = 1
     t_fcn = 0
     t_vec = np.array([])
     t_old = t0
+    ### Main testing loop
     while True:
         try:
             t = time.monotonic() - t0
@@ -223,7 +223,8 @@ async def main():
             else:
                 dt_med = 0.005
             GRP.set_Ts(dt_med)
-            # Cycle input function
+            
+            ### Cycle input function if requested
             if t_fcn > (max_cmd+incr)/rate:
                 # Swap driving and loading actuators
                 if not args.fast and not args.ultrafast:
@@ -242,24 +243,26 @@ async def main():
                 await finish(c1, c2, data)
                 return
             
-            # Setup t_fcn -- freezes when overtemp is latched
+            ### Setup t_fcn -- freezes when overtemp is latched
             if not overtemp: t_fcn = time.monotonic() - t0_fcn
             
             old_cmd = cmd
             freq_hz = 0
-            # Generate Command
+            
+            ### Generate Command
             if args.step: cmd = step_mag
             elif args.stair:
                 cmd0 = pos_neg * incr*(min(rate*(t_fcn), max_cmd)//incr)
 
                 # modulate command to combat/balance out hysteresis effects
-                if args.antihysteresis: 
-                    if(  ((rate*t_fcn)%incr)/incr > 0.01 and ((rate*t_fcn)%incr)/incr <= 0.2): cmd = cmd0
-                    elif(((rate*t_fcn)%incr)/incr > 0.2 and ((rate*t_fcn)%incr)/incr <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
-                    elif(((rate*t_fcn)%incr)/incr > 0.4 and ((rate*t_fcn)%incr)/incr <= 0.6): cmd = cmd0
-                    elif(((rate*t_fcn)%incr)/incr > 0.6 and ((rate*t_fcn)%incr)/incr <= 0.8): cmd = cmd0 - min(0.5*incr, 0.3)
-                    elif(((rate*t_fcn)%incr)/incr > 0.8 and ((rate*t_fcn)%incr)/incr <= 0.9): cmd = cmd0
-                    elif(((rate*t_fcn)%incr)/incr > 0.9): cmd = 0
+                if args.antihysteresis:
+                    arg = ((rate*t_fcn)%incr)/incr
+                    if( arg > 0.01 and arg <= 0.2): cmd = cmd0
+                    elif(arg > 0.2 and arg <= 0.4): cmd = cmd0 + min(0.5*incr, 0.3)
+                    elif(arg > 0.4 and arg <= 0.6): cmd = cmd0
+                    elif(arg > 0.6 and arg <= 0.8): cmd = cmd0 - min(0.5*incr, 0.3)
+                    elif(arg > 0.8 and arg <= 0.9): cmd = cmd0
+                    elif(arg > 0.9): cmd = 0
                     else: cmd = 0
                 else:
                     cmd = cmd0
@@ -267,9 +270,13 @@ async def main():
                 # freq_hz = min(1.0*(1.1**freq_hz), 45) # increase freq by 10% every 2 sec
                 # cmd = max_cmd*math.cos(freq_hz*np.pi*t)
             elif args.grp:
-                cmd = GRP.sample()[0]
+                if t < grp_tstart:
+                    # variable low frequency sweep to get more ow frequency data
+                    cmd = 2.0*math.sin((20/grp_tstart)*t_fcn*2*np.pi  *  t_fcn)
+                else:
+                    cmd = GRP.sample()[0]
             
-            # Overtemp Detection and Latch
+            ### Overtemp Detection and Latch
             if min(temp1, temp2) > 45 or max(temp1, temp2) > 85 or overtemp:
                 if t % 1.0 < 0.019 or overtemp == False and not args.fast:
                     print("over temp: temp1 = {}, temp2 = {}".format(round(temp1, 2), round(temp2, 2)))
@@ -278,11 +285,11 @@ async def main():
                 overtemp = True
                 cmd = 0.0
 
-            # Overtemp unlatch
+            ### Overtemp unlatch
             if min(temp1, temp2) < 40 and max(temp1, temp2) < 70 and overtemp:
                 overtemp = False
 
-            # Load Actuator
+            ### Load Actuator
             if not args.fast and not args.ultrafast:
                 if args.loadmode == 'damping' or args.loadmode == 'damp':
                     replyb = (await cb.set_position(position=math.nan, velocity=0,\
@@ -293,7 +300,7 @@ async def main():
                 else:
                     replyb = await cb.set_stop(query=True)
                 
-            # Driving Actuator
+            ### Driving Actuator
             if args.drivemode == 'current':
                 replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
             elif args.drivemode == 'velocity':
@@ -303,7 +310,7 @@ async def main():
                 cmd = 0
                 replya = await ca.set_stop(query=True)
 
-            # Keep track of data
+            ### Keep track of data when actuators swap driving/driven
             if orient_a_1:
                 reply1 = replya
                 reply2 = replyb
@@ -319,7 +326,7 @@ async def main():
             p1, v1, t1 = parse_reply(reply1, g1)
             p2, v2, t2 = parse_reply(reply2, g2)
 
-            # Read from analog sensors (torque and thermistors)
+            ### Read from analog sensors (torque and thermistors)
             if not args.fast and not args.ultrafast:
                 futek_torque = adc.read_adc(1, gain=GAIN, data_rate=DATARATE); futek_torque = adc2futek(futek_torque, gain=5/5)
                 temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
@@ -330,25 +337,27 @@ async def main():
             else:
                 futek_torque=0;temp1=0;temp2=0
 
+            ### Terminal print for monitoring
             if t % 1.0 < 0.02 and not args.fast and not args.ultrafast: print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, t1 = {}, t2 = {}".format(\
                 round(t, 3), round(temp1, 2), round(temp2, 2), cycle, round(cmd, 4), round(t1, 3), round(t2, 3)))
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
-            # Log data
+            ### Log data
             row = [t, t_fcn] + [cmd1*g1 if args.drivemode=='velocity' else cmd1] + [cmd1*kt_1*g1] +\
                 [p1, v1, t1, t1/(kt_1*g1)] + [cmd2*g2 if args.drivemode=='velocity' else cmd2] + [cmd2*kt_2*g2] + [p2, v2, t2, t2/(kt_2*g2)]\
                 + raw_reply_list(reply1) + raw_reply_list(reply2) +\
                 [futek_torque, temp1, temp2, observed_kt]
             data.append(row)
 
-            # Torque overload protection
-            if abs(t1) > ts_overload or abs(t2) > ts_overload:
+            ### Torque overload protection
+            if abs(t1) > ts_overload or abs(t2) > ts_overload or abs(futek_torque) > ts_overload:
                 print("torque overload detected")
                 await finish(c1, c2, data)
                 # sys.exit()
                 return
 
+            ### Having this sleep seems to help with loop rate consistency
             if args.fast: await asyncio.sleep(0.001)
 
         except (KeyboardInterrupt, SystemExit):
