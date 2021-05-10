@@ -202,8 +202,8 @@ async def main():
     Ts = 0.01
     GRP = GaussianRandomProcess(mean=0, amplitude=8, Ts=Ts)
     # SET GRP cutoff frequency here
-    GRP.set_fc(40)
-    grp_tstart = 10
+    GRP.set_fc(45)
+    grp_tstart = 20
 
     cycle = 1
     t_fcn = 0
@@ -272,7 +272,7 @@ async def main():
             elif args.grp:
                 if t < grp_tstart:
                     # variable low frequency sweep to get more ow frequency data
-                    cmd = 2.0*math.sin((20/grp_tstart)*t_fcn*2*np.pi  *  t_fcn)
+                    cmd = 2.0*math.sin((15/grp_tstart)*t*2*np.pi  *  t)
                 else:
                     cmd = GRP.sample()[0]
             
