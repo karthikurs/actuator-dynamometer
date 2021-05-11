@@ -194,9 +194,9 @@ async def main():
     replyb = await cb.set_stop(query=True)
 
     # parameters for stairstep command
-    max_cmd = 1.1   # A     or rotation Hz in velocity mode
-    hold = 1        # s
-    incr = 0.25      # A     or rotation Hz in velocity mode
+    max_cmd = 8.1   # A     or rotation Hz in velocity mode
+    hold = 5        # s
+    incr = 2.0      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
     
     Ts = 0.01
@@ -271,7 +271,7 @@ async def main():
                 # cmd = max_cmd*math.cos(freq_hz*np.pi*t)
             elif args.grp:
                 if t < grp_tstart:
-                    # variable low frequency sweep to get more ow frequency data
+                    # variable low frequency sweep to get more low frequency data
                     cmd = 2.0*math.sin((15/grp_tstart)*t*2*np.pi  *  t)
                 else:
                     cmd = GRP.sample()[0]
@@ -296,7 +296,7 @@ async def main():
                         watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
                 elif args.loadmode == 'stall':
                     replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
-                        watchdog_timeout=2.0, kp_scale=10, kd_scale=1, query=True))
+                        watchdog_timeout=2.0, kp_scale=15, kd_scale=5, query=True))
                 else:
                     replyb = await cb.set_stop(query=True)
                 
