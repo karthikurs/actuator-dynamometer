@@ -93,6 +93,9 @@ async def main():
         help="specify which torque sensor is being used", choices=['trd605-18', 'trs605-5'],\
         type=str, required=True)
 
+    parser.add_argument("--tsflip",\
+        help="flips torque sensor orientation",action='store_true')
+
     parser.add_argument("--loadmode",\
         help="specify how load actuator behaves", choices=['damping', 'damp', 'stall', 'stop', 'idle'],\
         type=str, required=True)
@@ -146,6 +149,7 @@ async def main():
     data.append(["# kt_1 = {}; kt_2 = {} from calibration logs".format(kt_1, kt_2)])
     data.append(["# g1 = {}; g2 = {}".format(g1, g2)])
     data.append(["# torque sensor: {}".format(args.torquesensor)])
+    data.append(["# tsflip = {}".format(args.tsflip)])
     data.append(["# load mode: {}".format(args.loadmode)])
     data.append(["# drive mode: {}".format(args.drivemode)])
     data.append(["# load damping scale = {}".format(damping)])
@@ -336,6 +340,8 @@ async def main():
                 temp1 = 0; temp2 = 0
             else:
                 futek_torque=0;temp1=0;temp2=0
+            
+            if args.tsflip: futek_torque*=-1
 
             ### Terminal print for monitoring
             if t % 1.0 < 0.02 and not args.fast and not args.ultrafast: print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, t1 = {}, t2 = {}".format(\
