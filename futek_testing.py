@@ -110,16 +110,72 @@ async def main():
     speed_group.add_argument("--ultrafast",\
         help="skip temp and futek readings, only command c1",action='store_true')
 
+    standard_test_group = parser.add_mutually_exclusive_group()
+    standard_test_group.add_argument("--standard-kt-test",\
+        help="runs standardized KT test: -8A to 8A, 2A increments, 5s hold, stalled load actuator.\nNOTE: This overrides other options",action='store_true')
+    standard_test_group.add_argument("--standard-direct-damping-test",\
+        help="runs standardized direct damping measurement test: -20Hz to 20HzA, 2.5Hz increments, 4s hold, stalled load actuator.\nNOTE: This overrides other options",action='store_true')
+    standard_test_group.add_argument("--standard-grp-test",\
+        help="runs standardized Gaussian Random Process test for inertia and damping: 8A amplitude, 45Hz LPF, 90s duration, ultrafast sampling mode, idling load actuator.\nNOTE: This overrides other options",action='store_true')
+
     args = parser.parse_args()
 
     g1 = args.gear1 if args.gear1 is not None else 6.0
     g2 = args.gear2 if args.gear2 is not None else 6.0
-    step_mag = args.step if args.step is not None else 0.0 
-    damping = args.damping if args.damping is not None else 0.1 
 
     ts_gain = 0; ts_overload = 0
     if args.torquesensor == 'trd605-18': ts_gain = 18.0/5.0; ts_overload = 18
     elif args.torquesensor == 'trs605-5': ts_gain = 5.0/5.0; ts_overload = 5
+    
+    ### Parameters for stairstep command
+    max_cmd = 8.1   # A     or rotation Hz in velocity mode
+    hold = 5        # s
+    incr = 2.0      # A     or rotation Hz in velocity mode
+
+    end_cycle = -1
+    if args.standard_kt_test:
+        args.step = None
+        args.stair = True
+        args.grp = False
+        args.damping = None
+        args.drivemode = 'current'
+        args.loadmode = 'stall'
+        args.antihysteresis = False
+        args.fast = False
+        args.ultrafast = False
+        end_cycle = 4
+        max_cmd = 8.1
+        hold = 5
+        incr = 2
+    elif args.standard_direct_damping_test:
+        args.step = None
+        args.stair = True
+        args.grp = False
+        args.damping = None
+        args.drivemode = 'velocity'
+        args.loadmode = 'idle'
+        args.antihysteresis = False
+        args.fast = False
+        args.ultrafast = False
+        end_cycle = 4
+        max_cmd = 20.1
+        hold = 5
+        incr = 2.5
+    elif args.standard_grp_test:
+        args.step = None
+        args.stair = False
+        args.grp = True
+        args.damping = None
+        args.drivemode = 'current'
+        args.loadmode = 'idle'
+        args.antihysteresis = False
+        args.ultrafast = True
+        args.duration = 90
+    
+    rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
+
+    step_mag = args.step if args.step is not None else 0.0 
+    damping = args.damping if args.damping is not None else 0.1
 
     adc = Adafruit_ADS1x15.ADS1115()
     GAIN = 2.0/3.0
@@ -197,11 +253,6 @@ async def main():
     replya = await ca.set_stop(query=True)
     replyb = await cb.set_stop(query=True)
 
-    # parameters for stairstep command
-    max_cmd = 8.1   # A     or rotation Hz in velocity mode
-    hold = 5        # s
-    incr = 2.0      # A     or rotation Hz in velocity mode
-    rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
 
     safety_max = 8.1
     
@@ -252,11 +303,16 @@ async def main():
                 # print("cycle")
                 cycle += 1
 
+            ### Timed Finish
             if args.duration is not None and t > args.duration:
                 print("test duration done")
                 await finish(c1, c2, data)
                 return
-            
+            ### Cyce Finish
+            if end_cycle > 0 and cycle > end_cycle:
+                print("{} cycles complete".format(cycle-1))
+                await finish(c1, c2, data)
+                return
             
             old_cmd = cmd
             freq_hz = 0
@@ -314,8 +370,8 @@ async def main():
                     replyb = await cb.set_stop(query=True)
                 
             ### Driving Actuator
-            cmd = min(max(cmd, -safety_max), safety_max)
             if args.drivemode == 'current':
+                cmd = min(max(cmd, -safety_max), safety_max)
                 replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
             elif args.drivemode == 'velocity':
                 replya = (await ca.set_position(position=math.nan, velocity=cmd,\
@@ -358,9 +414,12 @@ async def main():
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
             ### Log data
-            row = [t, t_fcn] + [cmd1*g1 if args.drivemode=='velocity' else cmd1] + [cmd1*kt_1*g1] +\
-                [p1, v1, t1, t1/(kt_1*g1)] + [cmd2*g2 if args.drivemode=='velocity' else cmd2] + [cmd2*kt_2*g2] + [p2, v2, t2, t2/(kt_2*g2)]\
-                + raw_reply_list(reply1) + raw_reply_list(reply2) +\
+            row = [t, t_fcn] +\
+                [cmd1/g1 if args.drivemode=='velocity' else cmd1] + [cmd1*kt_1*g1 if args.drivemode=='current' else 0] +\
+                [p1, v1, t1, t1/(kt_1*g1)] +\
+                [cmd2/g2 if args.drivemode=='velocity' else cmd2] + [cmd2*kt_2*g2 if args.drivemode=='current' else 0] +\
+                [p2, v2, t2, t2/(kt_2*g2)] +\
+                raw_reply_list(reply1) + raw_reply_list(reply2) +\
                 [futek_torque, temp1, temp2, observed_kt]
             data.append(row)
 
