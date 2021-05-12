@@ -202,6 +202,8 @@ async def main():
     hold = 5        # s
     incr = 2.0      # A     or rotation Hz in velocity mode
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
+
+    safety_max = 8.1
     
     Ts = 0.01
     GRP = GaussianRandomProcess(mean=0, amplitude=8, Ts=Ts)
@@ -212,11 +214,18 @@ async def main():
     cycle = 1
     t_fcn = 0
     t_vec = np.array([])
-    t_old = t0
+    t_old = 0
+    t = 0
     ### Main testing loop
     while True:
         try:
             t = time.monotonic() - t0
+
+            ### Setup t_fcn -- freezes when overtemp is latched
+            if not overtemp: t_fcn += (t - t_old)
+            # print(t_fcn)
+            
+            ### Figure out sampling period
             dt_med = t - t_old
             t_old = t
             np.append(t_vec,t)
@@ -238,7 +247,8 @@ async def main():
                     orient_a_1 = not orient_a_1 # swap driving actuator
                     print("reverse! reverse!")
                 if orient_a_1: pos_neg = -pos_neg # swap cmd sign every other cycles
-                t0_fcn = time.monotonic()
+                # t0_fcn = time.monotonic()
+                t_fcn = 0
                 # print("cycle")
                 cycle += 1
 
@@ -247,8 +257,6 @@ async def main():
                 await finish(c1, c2, data)
                 return
             
-            ### Setup t_fcn -- freezes when overtemp is latched
-            if not overtemp: t_fcn = time.monotonic() - t0_fcn
             
             old_cmd = cmd
             freq_hz = 0
@@ -279,6 +287,7 @@ async def main():
                     cmd = 2.0*math.sin((15/grp_tstart)*t*2*np.pi  *  t)
                 else:
                     cmd = GRP.sample()[0]
+
             
             ### Overtemp Detection and Latch
             if min(temp1, temp2) > 45 or max(temp1, temp2) > 85 or overtemp:
@@ -305,6 +314,7 @@ async def main():
                     replyb = await cb.set_stop(query=True)
                 
             ### Driving Actuator
+            cmd = min(max(cmd, -safety_max), safety_max)
             if args.drivemode == 'current':
                 replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
             elif args.drivemode == 'velocity':
@@ -341,8 +351,6 @@ async def main():
             else:
                 futek_torque=0;temp1=0;temp2=0
             
-            if args.tsflip: futek_torque*=-1
-
             ### Terminal print for monitoring
             if t % 1.0 < 0.02 and not args.fast and not args.ultrafast: print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, t1 = {}, t2 = {}".format(\
                 round(t, 3), round(temp1, 2), round(temp2, 2), cycle, round(cmd, 4), round(t1, 3), round(t2, 3)))
