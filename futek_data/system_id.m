@@ -198,8 +198,9 @@ ri50_noback = "futek_test_05_05_2021_13-52-50.csv";
 % ri50_back = "futek_test_06_05_2021_14-41-24.csv";
 ri50_back = "futek_test_06_05_2021_17-09-17.csv";
 % no_act = "futek_test_05_05_2021_14-14-46.csv";
-% no_act = "futek_test_06_05_2021_14-18-34.csv";
-no_act = "futek_test_06_05_2021_17-03-23.csv";
+no_act = "futek_test_06_05_2021_14-18-34.csv";
+% no_act = "futek_test_06_05_2021_17-03-23.csv";
+% no_act = "futek_test_10_05_2021_17-06-39.csv";
 no_steel = "futek_test_06_05_2021_14-21-05.csv";
 % ex8 = "futek_test_05_05_2021_17-35-01.csv";
 % ex8 = "futek_test_06_05_2021_14-07-32.csv";
@@ -243,17 +244,20 @@ for ii = 1:length(datafiles)
     opts = tfestOptions('WeightingFilter',[5.28, 668]);
     v_exp = iddata(a1_v, ts, Ts/ratio);
     q_exp = iddata(a1_v, a1_q, Ts/ratio);
+    t_exp = iddata(ts, a1_q, Ts/ratio);
     vtf = tfest(v_exp,1,0,0);
     qtf = tfest(q_exp,1,0,0);
+    ttf = tfest(t_exp,1,0,0);
 %     if ii==1 || ii==4
 %          vtf = tfest(v_exp, 2, 1, 0, opts);
 %          qtf = tfest(q_exp, 2, 1, 0, opts);
 %     end
-    tfs = [tfs, vtf];
+    tfs = [tfs, qtf];
     Js = [Js, qtf.Denominator(1)/qtf.Numerator(1)];
     Bs = [Bs, qtf.Denominator(2)/qtf.Numerator(1)];
     vsp = spa(v_exp);
     qsp = spa(q_exp);
+    tsp = spa(t_exp);
 %     figure;
     [Yvfit, vfit, ic] = compare(v_exp, vtf);
     [Yqfit, qfit, ic] = compare(q_exp, qtf);
@@ -263,6 +267,10 @@ for ii = 1:length(datafiles)
     hold on
     bode(qsp)
     bode(qtf)
+    if ii==1 && false
+        sys2 = tf([8000],[1 18]);
+        bode(sys2)
+    end
     title(sprintf("%s, VAF: %.2f%%", titles(ii), q_vafs(ii)));
     legend(["moteus data","moteus est"],'location','southwest');
     hold off
@@ -562,6 +570,114 @@ for kk = 1:4
 end
 sgtitle('Torque $\tau$ vs. q-axis Current $i_q$ for Stalled and Damped Load')
 
+%% KT simple
+datafile = "futek_test_11_05_2021_18-17-23.csv";
+datafile = "futek_test_11_05_2021_19-28-26.csv";
+
+data_table = readtable(datafile,'PreserveVariableNames',true);
+headers = data_table.Properties.VariableNames;
+
+time_idx = find(ismember(headers,'time [s]'));
+a1_q_idx = find(ismember(headers,'a1 q-axis [A]'));
+a2_q_idx = find(ismember(headers,'a2 q-axis [A]'));
+a1_q_cmd_idx = find(ismember(headers,'a1 q-axis cmd [A]'));
+a2_q_cmd_idx = find(ismember(headers,'a2 q-axis cmd [A]'));
+ts_idx = find(ismember(headers,'trs605-5 torque [Nm]'));
+
+time = table2array(data_table(1:end, time_idx));
+a1_q = table2array(data_table(1:end, a1_q_idx));
+a2_q = table2array(data_table(1:end, a2_q_idx));
+a1_q_cmd = table2array(data_table(1:end, a1_q_cmd_idx));
+a2_q_cmd = table2array(data_table(1:end, a2_q_cmd_idx));
+ts = -table2array(data_table(1:end, ts_idx));
+
+Ts = median(abs(time - circshift(time, 1)));
+
+buffer_time = 0.5;
+buffer = round(buffer_time/Ts);
+
+ss_mask = time >= 0;
+for ii = 1:buffer
+    ss_mask = ss_mask &...
+        abs(a1_q_cmd - circshift(a1_q_cmd, ii)) < 0.01 & ...
+        abs(a1_q_cmd - circshift(a1_q_cmd, -ii)) < 0.01 & ...
+        abs(a2_q_cmd - circshift(a2_q_cmd, ii)) < 0.01 & ...
+        abs(a2_q_cmd - circshift(a2_q_cmd, -ii)) < 0.01;
+end
+mean(ss_mask);
+time = time(ss_mask);
+a1_q = a1_q(ss_mask);
+a2_q = a2_q(ss_mask);
+a1_q_cmd = a1_q_cmd(ss_mask);
+a2_q_cmd = a2_q_cmd(ss_mask);
+ts = ts(ss_mask);
+
+a1_driving_mask = abs(a1_q_cmd) > 0.01; a2_driving_mask = abs(a2_q_cmd) > 0.01;
+idle_mask = (abs(a1_q_cmd) <= 0.01) & (abs(a2_q_cmd) <= 0.01);
+% a1_driving_mask = a1_driving_mask | idle_mask;
+% a2_driving_mask = a2_driving_mask | idle_mask;
+
+ts_mean = mean(ts(idle_mask)); ts = ts - ts_mean;
+
+q_ideal = unique(a1_q_cmd);
+
+q11 = []; q12 = []; q21 = []; q22 = [];
+ts11= []; ts12= []; ts21= []; ts22= [];
+for jj = 1:length(q_ideal)
+    q11 = [q11, mean(a1_q(a1_q_cmd==q_ideal(jj)))];
+    q12 = [q12, mean(a1_q(a2_q_cmd==q_ideal(jj)))];
+    q21 = [q21, mean(a2_q(a2_q_cmd==q_ideal(jj)))];
+    q22 = [q22, mean(a2_q(a1_q_cmd==q_ideal(jj)))];
+    
+    ts11 = [ts11, mean(ts(a1_q_cmd==q_ideal(jj)))];
+    ts12 = [ts12, mean(ts(a2_q_cmd==q_ideal(jj)))];
+    ts21 = [ts21, mean(ts(a2_q_cmd==q_ideal(jj)))];
+    ts22 = [ts22, mean(ts(a1_q_cmd==q_ideal(jj)))];
+end
+alpha = 0.1;
+figure; hold on
+subplot(1,2,1)
+hold on;
+s = scatter(a1_q(a1_driving_mask), ts(a1_driving_mask), 2, [.5 .5 .5],'HandleVisibility','off');
+s.MarkerFaceAlpha = alpha; s.MarkerEdgeAlpha = alpha;
+scatter(q11, ts11, 5, 'filled', 'k','HandleVisibility','off');
+[p, x, ~, est] = polynom_fit(q11, ts11, 1);
+plot(x([1 end]), est([1 end]), 'k',...
+    'DisplayName',sprintf("Driving, $\\tau = %.3f i_q + %.3f$", p(1),p(2)));
+
+s = scatter(a1_q(a2_driving_mask), ts(a2_driving_mask), 2, [.5 0 0],'HandleVisibility','off');
+s.MarkerFaceAlpha = alpha; s.MarkerEdgeAlpha = alpha;
+scatter(q12, ts12, 5, 'filled', 'r','HandleVisibility','off');
+[p, x, ~, est] = polynom_fit(q12, ts12, 1);
+plot(x([1 end]), est([1 end]), 'r',...
+    'DisplayName',sprintf("Driven, $\\tau = %.3f i_q + %.3f$", p(1),p(2)));
+
+ylabel('Torque ($\tau$) [Nm]'); xlabel('q-axis Current ($i_q$) [A]'); legend('location','southeast');
+title('Actuator 1')
+hold off;
+
+subplot(1,2,2)
+hold on;
+s = scatter(a2_q(a2_driving_mask), ts(a2_driving_mask), 2, [.5 .5 .5],'HandleVisibility','off');
+s.MarkerFaceAlpha = alpha; s.MarkerEdgeAlpha = alpha;
+scatter(q21, ts21, 5, 'filled', 'k','HandleVisibility','off');
+[p, x, ~, est] = polynom_fit(q21, ts21, 1);
+plot(x([1 end]), est([1 end]), 'k',...
+    'DisplayName',sprintf("Driving, $\\tau = %.3f i_q + %.3f$", p(1),p(2)));
+
+s = scatter(a2_q(a1_driving_mask), ts(a1_driving_mask), 2, [.5 0 0],'HandleVisibility','off');
+s.MarkerFaceAlpha = alpha; s.MarkerEdgeAlpha = alpha;
+scatter(q22, ts22, 5, 'filled', 'r','HandleVisibility','off');
+[p, x, ~, est] = polynom_fit(q22, ts22, 1);
+plot(x([1 end]), est([1 end]), 'r',...
+    'DisplayName',sprintf("Driven, $\\tau = %.3f i_q + %.3f$", p(1),p(2)));
+
+ylabel('Torque ($\tau$) [Nm]'); xlabel('q-axis Current ($i_q$) [A]'); legend('location','southeast');
+title('Actuator 2')
+hold off;
+    
+
+
 %% Viscous Damping
 
 datafile1 = "futek_test_27_04_2021_18-05-31.csv";
@@ -607,6 +723,34 @@ legend('Location','Best')
 xlabel('Rotational Velocity $(\omega)$ [rad/s]');
 ylabel('Torque $(\tau)$ [Nm]');
 hold off;
+
+%% Mini Cheetah Analysis
+
+figure;
+hold on;
+m = 1;
+n = 12;
+
+for idx = m:n
+    ii = idx - m + 1;
+    vel = leg_control_data.v(:,idx);
+    tau = leg_control_data.tau_est(:,idx);
+    vel_pts = linspace(-2.5,2.5,51); tau_pts = linspace(-8,8,51);
+    N = histcounts2(vel,tau,vel_pts,tau_pts);
+
+%     subplot(n-m+1,2,ii*2-1);
+%     scat = scatter(vel,tau,'ko');
+%     xlabel('velocity'); ylabel('torque');
+%     scat.MarkerFaceAlpha = 0.05; scat.MarkerEdgeAlpha = 0.05;
+%     set(gca, 'XLim', vel_pts([1 end]), 'YLim', tau_pts([1 end]), 'YDir', 'normal');
+
+%     subplot(n-m+1,2,ii*2);
+    subplot((n-m+1)/3,3,ii);
+    imagesc(vel_pts, tau_pts, N',[0 700]);
+    set(gca, 'XLim', vel_pts([1 end]), 'YLim', tau_pts([1 end]), 'YDir', 'normal');
+    xlabel('velocity'); ylabel('torque');
+end
+hold off
 
 function [q_cond, t_cond] = condense_data(q_meas, t_meas, q_cmd)
     cmds = unique(q_cmd);
