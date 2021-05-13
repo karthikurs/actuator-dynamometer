@@ -2,18 +2,19 @@
 % e1 = load_temp_experiment('futek_test_13_04_2021_20-10-36.csv');
 swap_temps=false;
 [e1, z1] = load_experiments('futek_test_13_04_2021_20-10-36.csv', swap_temps);
+[e1, z1] = load_experiments('futek_test_13_05_2021_18-10-31.csv', swap_temps);
 
 NN2 = struc(1:3,1:3,1000);
 % selstruc(arxstruc(e1(:,:,1),e1(:,:,1),NN2))
 
-etf = tfest(e1,2,0,0)
+etf = tfest(e1,1,0,0)
 
 % e2 = load_temp_experiment('futek_test_14_04_2021_16-17-17.csv');
 % e3 = load_temp_experiment('futek_test_14_04_2021_16-13-41.csv');
 [e2, z2] = load_experiments('futek_test_14_04_2021_16-17-17.csv', swap_temps);
 [e3, z3] = load_experiments('futek_test_14_04_2021_16-13-41.csv', swap_temps);
 
-compare(e3, etf)
+% compare(e3, etf)
 
 %% current cmd to motor temp estimation
 % z1 = load_current_experiment('futek_test_13_04_2021_20-10-36.csv');
@@ -22,7 +23,7 @@ compare(e3, etf)
 % z1 = z1(1:5000);
 
 tfopt = tfestOptions('InitialCondition','estimate');
-ztf = tfest(z1,2,1,0)
+ztf = tfest(z1,1,0,0)
 
 % z2 = load_current_experiment('futek_test_14_04_2021_16-17-17.csv');
 % z3 = load_current_experiment('futek_test_14_04_2021_16-13-41.csv');
@@ -151,7 +152,9 @@ ps
 
 % plot_thermal_model('futek_test_17_04_2021_16-37-13.csv', etf, ztf, true);
 
-plot_thermal_model('futek_test_27_04_2021_15-46-08.csv', etf, ztf, true, true);
+% plot_thermal_model('futek_test_27_04_2021_15-46-08.csv', etf, ztf, true, true);
+
+plot_thermal_model('futek_test_13_05_2021_18-10-31.csv', etf, ztf, true, true);
 
 %% Step response plotting
 
@@ -573,6 +576,7 @@ sgtitle('Torque $\tau$ vs. q-axis Current $i_q$ for Stalled and Damped Load')
 %% KT simple
 datafile = "futek_test_11_05_2021_18-17-23.csv";
 datafile = "futek_test_11_05_2021_19-28-26.csv";
+datafile = "futek_test_13_05_2021_18-10-31.csv";
 
 data_table = readtable(datafile,'PreserveVariableNames',true);
 headers = data_table.Properties.VariableNames;
@@ -589,7 +593,7 @@ a1_q = table2array(data_table(1:end, a1_q_idx));
 a2_q = table2array(data_table(1:end, a2_q_idx));
 a1_q_cmd = table2array(data_table(1:end, a1_q_cmd_idx));
 a2_q_cmd = table2array(data_table(1:end, a2_q_cmd_idx));
-ts = -table2array(data_table(1:end, ts_idx));
+ts = table2array(data_table(1:end, ts_idx));
 
 Ts = median(abs(time - circshift(time, 1)));
 
@@ -750,6 +754,7 @@ for idx = m:n
     set(gca, 'XLim', vel_pts([1 end]), 'YLim', tau_pts([1 end]), 'YDir', 'normal');
     xlabel('velocity'); ylabel('torque');
 end
+sgtitle("MIT Mini Cheetah Actuator Data");
 hold off
 
 function [q_cond, t_cond] = condense_data(q_meas, t_meas, q_cmd)
@@ -882,11 +887,18 @@ function exp = load_current_experiment(fname, swap_temp)
 end
 
 function [e, z] = load_experiments(fname, swap_temp)
-    data_table = readtable(fname);
+    data_table = readtable(fname,'PreserveVariableNames',true);
+    headers = data_table.Properties.VariableNames;
+
+    time_idx = find(ismember(headers,'time [s]'));
+    a1_q_idx = find(ismember(headers,'a1 q-axis [A]'));
     
-    t = table2array(data_table(1:end, 1));
-    i = table2array(data_table(1:end, 2));
+    t = table2array(data_table(1:end, time_idx));
+    i = table2array(data_table(1:end, a1_q_idx));
     i2 = i.^2;
+    
+    Tp_idx = find(ismember(headers,'housing temp [C]'));
+    Tm_idx = find(ismember(headers,'motor temp [C]'));
 
     if swap_temp
         Tp = table2array(data_table(1:end, 26)) - 23;
@@ -896,7 +908,10 @@ function [e, z] = load_experiments(fname, swap_temp)
         Tm = table2array(data_table(1:end, 26)) - 23;
     end
     
-    Ts = mean(-t(1:end-1) + t(2:end))
+    Tp = table2array(data_table(1:end, Tp_idx)) - 23;
+    Tm = table2array(data_table(1:end, Tm_idx)) - 23;
+    
+    Ts = median(-t(1:end-1) + t(2:end))
     
     e = iddata(Tp, Tm, Ts);
     z = iddata(Tm, i2, Ts);
