@@ -104,6 +104,9 @@ async def main():
         help="specify how driving actuator behaves", choices=['velocity', 'current'],\
         type=str, required=True)
 
+    parser.add_argument("--hitemp",\
+        help="higher temperature allowance",action='store_true')
+
     speed_group = parser.add_mutually_exclusive_group()
     speed_group.add_argument("--fast",\
         help="skip temp readings, only command c1",action='store_true')
@@ -126,6 +129,15 @@ async def main():
     ts_gain = 0; ts_overload = 0
     if args.torquesensor == 'trd605-18': ts_gain = 18.0/5.0; ts_overload = 18
     elif args.torquesensor == 'trs605-5': ts_gain = 5.0/5.0; ts_overload = 5
+
+    TP_latch = 45
+    TM_latch = 85
+    TP_unlatch = 40
+    TM_unlatch = 70
+
+    if args.hitemp:
+        TP_latch = 80
+        TP_unlatch = 70
     
     ### Parameters for stairstep command
     max_cmd = 8.1   # A     or rotation Hz in velocity mode
@@ -346,7 +358,7 @@ async def main():
 
             
             ### Overtemp Detection and Latch
-            if min(temp1, temp2) > 45 or max(temp1, temp2) > 85 or overtemp:
+            if min(temp1, temp2) > TP_latch or max(temp1, temp2) > TM_latch or overtemp:
                 if t % 1.0 < 0.019 or overtemp == False and not args.fast:
                     print("over temp: temp1 = {}, temp2 = {}".format(round(temp1, 2), round(temp2, 2)))
                 # await finish(c1,c2,data)
@@ -355,7 +367,7 @@ async def main():
                 cmd = 0.0
 
             ### Overtemp unlatch
-            if min(temp1, temp2) < 40 and max(temp1, temp2) < 70 and overtemp:
+            if min(temp1, temp2) < TP_unlatch and max(temp1, temp2) < TM_unlatch and overtemp:
                 overtemp = False
 
             ### Load Actuator
