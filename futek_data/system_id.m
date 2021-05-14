@@ -205,8 +205,8 @@ no_steel = "futek_test_06_05_2021_14-21-05.csv";
 % ex8 = "futek_test_06_05_2021_14-07-32.csv";
 ex8 = "futek_test_06_05_2021_17-22-41.csv";
 
-datafiles = [no_act, ri50_back, ex8];
-titles = ["No Actuator", "RI50", "EX8"];
+datafiles = [no_act, ri50_back, ex8, no_steel];
+titles = ["No Actuator", "RI50", "EX8", "No Steel"];
 tfs = [];
 Js = [];
 Bs = [];
@@ -245,16 +245,19 @@ for ii = 1:length(datafiles)
     q_exp = iddata(a1_v, a1_q, Ts/ratio);
     vtf = tfest(v_exp,1,0,0);
     qtf = tfest(q_exp,1,0,0);
-%     if ii==1 || ii==4
-%          vtf = tfest(v_exp, 2, 1, 0, opts);
-%          qtf = tfest(q_exp, 2, 1, 0, opts);
-%     end
+    if ii==4
+         vtf = tfest(v_exp, 2, 1, 0, opts);
+         qtf = tfest(q_exp, 2, 1, 0, opts);
+    end
     tfs = [tfs, vtf];
     Js = [Js, qtf.Denominator(1)/qtf.Numerator(1)];
     Bs = [Bs, qtf.Denominator(2)/qtf.Numerator(1)];
     vsp = spa(v_exp);
     qsp = spa(q_exp);
 %     figure;
+    if ii==4
+        break
+    end
     [Yvfit, vfit, ic] = compare(v_exp, vtf);
     [Yqfit, qfit, ic] = compare(q_exp, qtf);
     v_vafs = [v_vafs, vaf(v_exp.OutputData, Yvfit.OutputData)];
