@@ -97,7 +97,7 @@ async def main():
         help="flips torque sensor orientation",action='store_true')
 
     parser.add_argument("--loadmode",\
-        help="specify how load actuator behaves", choices=['damping', 'damp', 'stall', 'stop', 'idle'],\
+        help="specify how load actuator behaves", choices=['damping', 'damp', 'stall', 'stop', 'idle', 'velocity'],\
         type=str, required=True)
 
     parser.add_argument("--drivemode",\
@@ -120,6 +120,8 @@ async def main():
         help="runs standardized direct damping measurement test: -20Hz to 20HzA, 2.5Hz increments, 4s hold, stalled load actuator.\nNOTE: This overrides other options",action='store_true')
     standard_test_group.add_argument("--standard-grp-test",\
         help="runs standardized Gaussian Random Process test for inertia and damping: 8A amplitude, 45Hz LPF, 90s duration, ultrafast sampling mode, idling load actuator.\nNOTE: This overrides other options",action='store_true')
+    standard_test_group.add_argument("--standard-tv-sweep",\
+        help="runs standardized torque-velocity sweep.\nNOTE: This overrides other options",action='store_true')
 
     args = parser.parse_args()
 

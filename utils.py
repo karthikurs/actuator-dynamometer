@@ -23,12 +23,12 @@ from kinematics import *
 
 import Adafruit_ADS1x15
 
-def adc2temp(temp):
+def adc2temp(temp, V0 = 3.3):
     R0 = 100000
     T0 = 25
 
     Rf = 100000
-    V0 = 5
+    # V0 = 5
 
     Vt = round(6.144*(2.0*temp/(65536)), 6)
 
