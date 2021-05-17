@@ -23,6 +23,7 @@ from kinematics import *
 from utils import *
 
 import Adafruit_ADS1x15
+from ina260.controller import Controller
 
 # def adc2temp(temp):
 #     R0 = 100000
@@ -117,7 +118,7 @@ async def main():
     standard_test_group.add_argument("--standard-kt-test",\
         help="runs standardized KT test: -8A to 8A, 2A increments, 5s hold, stalled load actuator.\nNOTE: This overrides other options",action='store_true')
     standard_test_group.add_argument("--standard-direct-damping-test",\
-        help="runs standardized direct damping measurement test: -20Hz to 20HzA, 2.5Hz increments, 4s hold, stalled load actuator.\nNOTE: This overrides other options",action='store_true')
+        help="runs standardized direct damping measurement test: -20Hz to 20HzA, 2.5Hz increments, 4s hold, idle load actuator.\nNOTE: This overrides other options",action='store_true')
     standard_test_group.add_argument("--standard-grp-test",\
         help="runs standardized Gaussian Random Process test for inertia and damping: 8A amplitude, 45Hz LPF, 90s duration, ultrafast sampling mode, idling load actuator.\nNOTE: This overrides other options",action='store_true')
     standard_test_group.add_argument("--standard-tv-sweep",\
@@ -168,6 +169,7 @@ async def main():
         args.damping = None
         args.drivemode = 'velocity'
         args.loadmode = 'idle'
+        # args.loadmode = 'damping'
         args.antihysteresis = False
         args.fast = False
         args.ultrafast = False
@@ -191,14 +193,20 @@ async def main():
     step_mag = args.step if args.step is not None else 0.0 
     damping = args.damping if args.damping is not None else 0.1
 
-    adc = Adafruit_ADS1x15.ADS1115()
-    GAIN = 2.0/3.0
-    DATARATE = 860
+    # adc = Adafruit_ADS1x15.ADS1115()
+    adc = Adafruit_ADS1x15.ADS1015()
+    # GAIN = 2.0/3.0
+    GAIN = 1.0
+    # DATARATE = 860
+    DATARATE = 3300
 
-    zero_val = adc.read_adc(1, gain=GAIN, data_rate=DATARATE)
-    zero_val = round(6.144*(2.0*zero_val/(65536)), 6)
+    ina1 = Controller(address= 0x40)
+    ina2 = Controller(address= 0x41)
 
-    if args.fast: adc.start_adc(1, gain=GAIN, data_rate=DATARATE)
+    zero_val = adc.read_adc(0, gain=GAIN, data_rate=DATARATE)
+    zero_val = round(4.096/DATARATE*(2.0*zero_val/(4096)), 6)
+
+    if args.fast: adc.start_adc(0, gain=GAIN, data_rate=DATARATE)
     
     c1, c2, kt_1, kt_2 = await init_controllers()
 
@@ -244,8 +252,9 @@ async def main():
                 "c2 torque [Nm]", "c2 voltage [V]",\
                 "c2 temp [C]", "c2 fault",\
                 "{} torque [Nm]".format(args.torquesensor),
-                "motor temp [C]", "housing temp [C]",\
-                "observed torque constant [Nm/A]"])
+                "motor temp [C]", "housing temp [C]",
+                "ina1 voltage [V]", "ina1 current [A]", "ina1 power [W]",\
+                "ina2 voltage [V]", "ina2 current [A]", "ina2 power [W]"])
 
     overtemp = False
     old_cmd = 0.0
@@ -255,6 +264,9 @@ async def main():
         temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
     else:
         temp1 = 0; temp2 = 0
+
+    ina1_v = 0; ina1_i = 0
+    ina2_v = 0; ina2_i = 0
     t0_fcn = t0
     ca = c1; cb = c2
     orient_a_1 = True # True when a1 is driving
@@ -266,7 +278,6 @@ async def main():
     cmd1 = 0; cmd2 = 0
     replya = await ca.set_stop(query=True)
     replyb = await cb.set_stop(query=True)
-
 
     safety_max = 8.1
     
@@ -410,16 +421,24 @@ async def main():
             p1, v1, t1 = parse_reply(reply1, g1)
             p2, v2, t2 = parse_reply(reply2, g2)
 
-            ### Read from analog sensors (torque and thermistors)
+            ### Read from analog sensors (torque, thermistors, power meters)
             if not args.fast and not args.ultrafast:
-                futek_torque = adc.read_adc(1, gain=GAIN, data_rate=DATARATE); futek_torque = adc2futek(futek_torque, gain=5/5)
+                # futek_torque = adc.read_adc(1, gain=GAIN, data_rate=DATARATE); futek_torque = adc2futek(futek_torque, gain=5/5)
+                futek_torque = adc.read_adc(0, gain=GAIN, data_rate=DATARATE); futek_torque = adc2futek(futek_torque, gain=5/5)
                 temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
                 temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
+
+                ina1_v = ina1.voltage(); ina1_i = ina1.current()
+                ina2_v = ina2.voltage(); ina2_i = ina2.current()
             elif args.fast:
                 futek_torque = adc.get_last_result(); futek_torque = adc2futek(futek_torque, gain=5/5)
-                temp1 = 0; temp2 = 0
+                temp1=0; temp2=0
+                ina1_v=0; ina1_i=0
+                ina2_v=0; ina2_i=0
             else:
                 futek_torque=0;temp1=0;temp2=0
+                ina1_v=0; ina1_i=0
+                ina2_v=0; ina2_i=0
             
             ### Terminal print for monitoring
             if t % 1.0 < 0.02 and not args.fast and not args.ultrafast: print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, t1 = {}, t2 = {}".format(\
@@ -434,7 +453,9 @@ async def main():
                 [cmd2/g2 if args.drivemode=='velocity' else cmd2] + [cmd2*kt_2*g2 if args.drivemode=='current' else 0] +\
                 [p2, v2, t2, t2/(kt_2*g2)] +\
                 raw_reply_list(reply1) + raw_reply_list(reply2) +\
-                [futek_torque, temp1, temp2, observed_kt]
+                [futek_torque, temp1, temp2] +\
+                [ina1_v, ina1_i, ina1_v*ina1_i] +\
+                [ina2_v, ina2_i, ina2_v*ina2_i]
             data.append(row)
 
             ### Torque overload protection

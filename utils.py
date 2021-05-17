@@ -23,22 +23,22 @@ from kinematics import *
 
 import Adafruit_ADS1x15
 
-def adc2temp(temp, V0 = 3.3):
+def adc2temp(temp, V0 = 3.3, adc_gain=1.0, adc_range=4096):
     R0 = 100000
     T0 = 25
 
     Rf = 100000
     # V0 = 5
 
-    Vt = round(6.144*(2.0*temp/(65536)), 6)
+    Vt = round(4.096/adc_gain*(2.0*temp/(adc_range)), 6)
 
     Rt = Rf*Vt / (V0 - Vt)
 
     temp = (1/298.15) + (1/3950)*math.log(Rt/R0)
     return 1/temp - 273.15
 
-def adc2futek(adc, gain=1, zero_val=2.500):
-    torque = 6.144*(2.0*adc/(65536))
+def adc2futek(adc, gain=1, zero_val=1.65, adc_gain=1.0, adc_range=4096):
+    torque = 4.096/adc_gain*(2.0*adc/(adc_range))
     torque = -2.0*(torque-zero_val) * gain
     return torque
 
