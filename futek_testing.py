@@ -89,24 +89,22 @@ async def main():
 
     parser.add_argument("--antihysteresis",\
         help="runs anti-hysteresis pattern",action='store_true')
-
     parser.add_argument("--torquesensor",\
         help="specify which torque sensor is being used", choices=['trd605-18', 'trs605-5'],\
         type=str, required=True)
-
     parser.add_argument("--tsflip",\
         help="flips torque sensor orientation",action='store_true')
-
     parser.add_argument("--loadmode",\
         help="specify how load actuator behaves", choices=['damping', 'damp', 'stall', 'stop', 'idle', 'velocity'],\
         type=str, required=True)
-
     parser.add_argument("--drivemode",\
         help="specify how driving actuator behaves", choices=['velocity', 'current'],\
         type=str, required=True)
-
     parser.add_argument("--hitemp",\
         help="higher temperature allowance",action='store_true')
+
+    parser.add_argument("--actuatorflip",\
+        help="Actuator 2 takes precedence instead of 1",action='store_true')
 
     speed_group = parser.add_mutually_exclusive_group()
     speed_group.add_argument("--fast",\
@@ -187,52 +185,79 @@ async def main():
         args.antihysteresis = False
         args.ultrafast = True
         args.duration = 90
+    elif args.standard_tv_sweep:
+        args.step = None
+        args.stair = False
+        args.grp = False
+        args.damping = None
+        args.drivemode = 'current'
+        args.loadmode = 'velocity'
+        args.antihysteresis = False
+        args.fast = False
+        args.ultrafast = False
+        hold = 3
     
     rate = incr/hold      # A/s   or rotation Hz/s in velocity mode
 
     step_mag = args.step if args.step is not None else 0.0 
     damping = args.damping if args.damping is not None else 0.1
 
-    # adc = Adafruit_ADS1x15.ADS1115()
+    ### SENSOR SETUP
     adc = Adafruit_ADS1x15.ADS1015()
-    # GAIN = 2.0/3.0
     GAIN = 1.0
-    # DATARATE = 860
     DATARATE = 3300
 
-    ina1 = Controller(address= 0x40)
-    ina2 = Controller(address= 0x41)
+    ina1 = Controller(address= 0x40); ina1_v = 0; ina1_i = 0
+    ina2 = Controller(address= 0x41); ina2_v = 0; ina2_i = 0
 
     zero_val = adc.read_adc(0, gain=GAIN, data_rate=DATARATE)
     zero_val = round(4.096/DATARATE*(2.0*zero_val/(4096)), 6)
+    print(zero_val)
 
     if args.fast: adc.start_adc(0, gain=GAIN, data_rate=DATARATE)
+    if not args.fast or args.ultrafast:
+        temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
+        temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
+    else:
+        temp1 = 0; temp2 = 0
     
+    ### MOTEUS SETUP
     c1, c2, kt_1, kt_2 = await init_controllers()
 
     await c1.set_rezero()
     await c2.set_rezero()
-    print(zero_val)
+    ca = c1; cb = c2
+    orient_a_1 = True # True when a1 is driving
+    if args.actuatorflip:
+        ca = c2
+        cb = c1
+        orient_a_1 = False # False when a2 is driving
+    
+    pos_neg = 1 # positive or negative command
+    cmd1 = 0; cmd2 = 0
+    replya = await ca.set_stop(query=True)
+    replyb = await cb.set_stop(query=True)
     
     t0 = time.monotonic()
     data = []
-    data.append(["# Test started at " + time.asctime()])
-    data.append(["# Labels:"])
-    data.append(["# \t a1 = actuator 1. Values at *actuator* level after gearbox"])
-    data.append(["# \t a2 = actuator 2. Values at *actuator* level after gearbox"])
-    data.append(["# \t c1 = moteus controller 1. Values at *motor* level (no gearbox)"])
-    data.append(["# \t c2 = moteus controller 2. Values at *motor* level (no gearbox)"])
-    data.append(["# Note: Data assumes gearbox is 100pc efficient"])
-    data.append(["# "])
-    data.append(["# kt_1 = {}; kt_2 = {} from calibration logs".format(kt_1, kt_2)])
-    data.append(["# g1 = {}; g2 = {}".format(g1, g2)])
-    data.append(["# torque sensor: {}".format(args.torquesensor)])
-    data.append(["# tsflip = {}".format(args.tsflip)])
-    data.append(["# load mode: {}".format(args.loadmode)])
-    data.append(["# drive mode: {}".format(args.drivemode)])
-    data.append(["# load damping scale = {}".format(damping)])
-    if args.step is not None: data.append(["# step input test; magnitude = {} A".format(step_mag)])
-    if args.comment is not None: data.append(["# User comment: " + args.comment.replace(',',';')])
+    if True: # if statement here just to collapse block in editor
+        data.append(["# Test started at " + time.asctime()])
+        data.append(["# Labels:"])
+        data.append(["# \t a1 = actuator 1. Values at *actuator* level after gearbox"])
+        data.append(["# \t a2 = actuator 2. Values at *actuator* level after gearbox"])
+        data.append(["# \t c1 = moteus controller 1. Values at *motor* level (no gearbox)"])
+        data.append(["# \t c2 = moteus controller 2. Values at *motor* level (no gearbox)"])
+        data.append(["# Note: Data assumes gearbox is 100pc efficient"])
+        data.append(["# "])
+        data.append(["# kt_1 = {}; kt_2 = {} from calibration logs".format(kt_1, kt_2)])
+        data.append(["# g1 = {}; g2 = {}".format(g1, g2)])
+        data.append(["# torque sensor: {}".format(args.torquesensor)])
+        data.append(["# tsflip = {}".format(args.tsflip)])
+        data.append(["# load mode: {}".format(args.loadmode)])
+        data.append(["# drive mode: {}".format(args.drivemode)])
+        data.append(["# load damping scale = {}".format(damping)])
+        if args.step is not None: data.append(["# step input test; magnitude = {} A".format(step_mag)])
+        if args.comment is not None: data.append(["# User comment: " + args.comment.replace(',',';')])
 
     cmd_label = 'q-axis cmd [A]'
     if args.drivemode == 'velocity': cmd_label = 'velocity cmd [Hz]'
@@ -254,45 +279,50 @@ async def main():
                 "{} torque [Nm]".format(args.torquesensor),
                 "motor temp [C]", "housing temp [C]",
                 "ina1 voltage [V]", "ina1 current [A]", "ina1 power [W]",\
-                "ina2 voltage [V]", "ina2 current [A]", "ina2 power [W]"])
+                "ina2 voltage [V]", "ina2 current [A]", "ina2 power [W]",\
+                "load velocity cmd [Hz]" if args.loadmode == 'velocity' else ""])
 
+    ### COMMAND SETUP
     overtemp = False
     old_cmd = 0.0
     cmd = 0.0
-    if not args.fast or args.ultrafast:
-        temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
-        temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
-    else:
-        temp1 = 0; temp2 = 0
-
-    ina1_v = 0; ina1_i = 0
-    ina2_v = 0; ina2_i = 0
+    load_v = 0.0
     t0_fcn = t0
-    ca = c1; cb = c2
-    orient_a_1 = True # True when a1 is driving
-    # ca = c2
-    # cb = c1
-    # orient_a_1 = False # True when a1 is driving
-    
-    pos_neg = 1 # positive or negative command
-    cmd1 = 0; cmd2 = 0
-    replya = await ca.set_stop(query=True)
-    replyb = await cb.set_stop(query=True)
 
     safety_max = 8.1
     
     Ts = 0.01
     GRP = GaussianRandomProcess(mean=0, amplitude=8, Ts=Ts)
-    # SET GRP cutoff frequency here
+    # Set GRP cutoff frequency here
     GRP.set_fc(45)
-    grp_tstart = 20
+    grp_tstart = 20 # GRP delayed start
 
-    cycle = 1
+    driving_i_cmd_vec = []
+    loading_v_cmd_vec = []
+    condition_time_vec = []
+    nom_i_A = np.linspace(0, 2, 5)
+    nom_v_Hz = np.linspace(0.5, 2.5, 5)
+    i_pos_neg = [1, 1, -1, -1]
+    v_pos_neg = [1, -1, 1, -1]
+    if args.standard_tv_sweep:
+        hold = 1
+        rest = 0.25
+        for v_nom in nom_v_Hz:
+            for i_nom in nom_i_A:
+                for pn in range(4):
+                    driving_i_cmd_vec.append(i_pos_neg[pn]*i_nom)
+                    loading_v_cmd_vec.append(v_pos_neg[pn]*v_nom)
+                    condition_time_vec.append(hold)
+                    driving_i_cmd_vec.append(0)
+                    loading_v_cmd_vec.append(0)
+                    condition_time_vec.append(rest)
+
+    cycle = 0
     t_fcn = 0
     t_vec = np.array([])
     t_old = 0
     t = 0
-    ### Main testing loop
+    ### MAIN TESTING LOOP
     while True:
         try:
             t = time.monotonic() - t0
@@ -314,7 +344,7 @@ async def main():
             GRP.set_Ts(dt_med)
             
             ### Cycle input function if requested
-            if t_fcn > (max_cmd+incr)/rate:
+            if not args.standard_tv_sweep and t_fcn > (max_cmd+incr)/rate:
                 # Swap driving and loading actuators
                 if not args.fast and not args.ultrafast:
                     ctemp = ca
@@ -327,13 +357,15 @@ async def main():
                 t_fcn = 0
                 # print("cycle")
                 cycle += 1
+            elif args.standard_tv_sweep and t_fcn > sum(condition_time_vec[:cycle+1]):
+                cycle += 1
 
             ### Timed Finish
             if args.duration is not None and t > args.duration:
                 print("test duration done")
                 await finish(c1, c2, data)
                 return
-            ### Cyce Finish
+            ### Cycle Finish
             if end_cycle > 0 and cycle > end_cycle:
                 print("{} cycles complete".format(cycle-1))
                 await finish(c1, c2, data)
@@ -346,7 +378,6 @@ async def main():
             if args.step: cmd = step_mag
             elif args.stair:
                 cmd0 = pos_neg * incr*(min(rate*(t_fcn), max_cmd)//incr)
-
                 # modulate command to combat/balance out hysteresis effects
                 if args.antihysteresis:
                     arg = ((rate*t_fcn)%incr)/incr
@@ -368,8 +399,10 @@ async def main():
                     cmd = 2.0*math.sin((15/grp_tstart)*t*2*np.pi  *  t)
                 else:
                     cmd = GRP.sample()[0]
+            elif args.standard_tv_sweep:
+                cmd = driving_i_cmd_vec[cycle]
+                load_v = loading_v_cmd_vec[cycle]
 
-            
             ### Overtemp Detection and Latch
             if min(temp1, temp2) > TP_latch or max(temp1, temp2) > TM_latch or overtemp:
                 if t % 1.0 < 0.019 or overtemp == False and not args.fast:
@@ -391,6 +424,9 @@ async def main():
                 elif args.loadmode == 'stall':
                     replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
                         watchdog_timeout=2.0, kp_scale=15, kd_scale=5, query=True))
+                elif args.loadmode == 'velocity':
+                    replyb = (await cb.set_position(position=math.nan, velocity=load_v,\
+                        watchdog_timeout=2.0, kp_scale=5, kd_scale=5, query=True))
                 else:
                     replyb = await cb.set_stop(query=True)
                 
@@ -441,8 +477,9 @@ async def main():
                 ina2_v=0; ina2_i=0
             
             ### Terminal print for monitoring
-            if t % 1.0 < 0.02 and not args.fast and not args.ultrafast: print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, t1 = {}, t2 = {}".format(\
-                round(t, 3), round(temp1, 2), round(temp2, 2), cycle, round(cmd, 4), round(t1, 3), round(t2, 3)))
+            if t % 1.0 < 3.0*dt_med and not args.fast and not args.ultrafast: 
+                print("t = {}s, temp1 = {}, temp2 = {}, cycle = {}, cmd = {}, load_v = {}, t1 = {}, t2 = {}".format(\
+                round(t, 1), round(temp1, 1), round(temp2, 1), cycle, round(cmd, 2), round(load_v, 2), round(t1, 1), round(t2, 1)))
 
             observed_kt = 0 if np.abs(cmd) < 0.001 else futek_torque/cmd
 
@@ -456,6 +493,7 @@ async def main():
                 [futek_torque, temp1, temp2] +\
                 [ina1_v, ina1_i, ina1_v*ina1_i] +\
                 [ina2_v, ina2_i, ina2_v*ina2_i]
+            if args.loadmode == 'velocity': row += [load_v]
             data.append(row)
 
             ### Torque overload protection
@@ -465,7 +503,7 @@ async def main():
                 # sys.exit()
                 return
 
-            ### Having this sleep seems to help with loop rate consistency
+            ### This sleep seems to help with loop rate consistency
             if args.fast: await asyncio.sleep(0.001)
 
         except (KeyboardInterrupt, SystemExit):
