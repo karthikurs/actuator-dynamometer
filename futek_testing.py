@@ -300,23 +300,24 @@ async def main():
     driving_i_cmd_vec = []
     loading_v_cmd_vec = []
     condition_time_vec = []
-    nom_i_A = np.linspace(0, 2, 5)
-    nom_v_Hz = np.linspace(0.5, 2.5, 5)
-    i_pos_neg = [1, 1, -1, -1]
-    v_pos_neg = [1, -1, 1, -1]
+    nom_i_A = np.linspace(0, 5, 11)
+    nom_v_Hz = np.linspace(0.5, 20.5, 11)
+    i_pos_neg = [1, 1]
+    v_pos_neg = [1, -1]
     if args.standard_tv_sweep:
-        hold = 1
+        hold = 3.75
         rest = 0.25
         for v_nom in nom_v_Hz:
             for i_nom in nom_i_A:
-                for pn in range(4):
+                for pn in range(2):
                     driving_i_cmd_vec.append(i_pos_neg[pn]*i_nom)
                     loading_v_cmd_vec.append(v_pos_neg[pn]*v_nom)
                     condition_time_vec.append(hold)
                     driving_i_cmd_vec.append(0)
                     loading_v_cmd_vec.append(0)
                     condition_time_vec.append(rest)
-
+        end_cycle = len(driving_i_cmd_vec)-1
+    condition_time_vec.append(0)
     cycle = 0
     t_fcn = 0
     t_vec = np.array([])
