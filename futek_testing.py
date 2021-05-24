@@ -185,7 +185,7 @@ async def main():
         args.antihysteresis = False
         args.fast = True
         args.ultrafast = False
-        args.duration = 90
+        args.duration = 600
     elif args.standard_tv_sweep:
         args.step = None
         args.stair = False
