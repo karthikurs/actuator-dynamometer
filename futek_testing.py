@@ -183,7 +183,8 @@ async def main():
         args.drivemode = 'current'
         args.loadmode = 'idle'
         args.antihysteresis = False
-        args.ultrafast = True
+        args.fast = True
+        args.ultrafast = False
         args.duration = 90
     elif args.standard_tv_sweep:
         args.step = None

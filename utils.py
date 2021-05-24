@@ -37,9 +37,10 @@ def adc2temp(temp, V0 = 3.3, adc_gain=1.0, adc_range=4096):
     temp = (1/298.15) + (1/3950)*math.log(Rt/R0)
     return 1/temp - 273.15
 
-def adc2futek(adc, gain=1, zero_val=1.65, adc_gain=1.0, adc_range=4096):
-    torque = 4.096/adc_gain*(2.0*adc/(adc_range))
-    torque = -2.0*(torque-zero_val) * gain
+def adc2futek(adc, gain=1, zero_val=5/3.0, adc_gain=1.0, adc_range=4096):
+    adc_voltage = 4.096/adc_gain*(2.0*adc/(adc_range))
+    # torque = -2.0*(adc_voltage-zero_val) * gain
+    torque = -(3)*(adc_voltage-zero_val) * gain
     return torque
 
 # https://stackoverflow.com/questions/25191620/creating-lowpass-filter-in-scipy-understanding-methods-and-units

@@ -64,6 +64,7 @@ while True:
             # values[i] = -2.0*(values[i]-2.500) * 18.0/5.0
             # values[i] = -2.0*(values[i]- (3.3/2)) * 5.0/3.3
             values[i] = adc2futek(values[i], gain=5/5)
+            # values[i] = 4.096*2*values[i]/4096.0
 
         # Note you can also pass in an optional data_rate parameter that controls
         # the ADC conversion time (in samples/second). Each chip has a different
