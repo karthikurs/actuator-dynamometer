@@ -1,0 +1,17 @@
+# Test started at Tue May 25 18:27:59 2021
+# Labels:
+# 	 a1 = actuator 1. Values at *actuator* level after gearbox
+# 	 a2 = actuator 2. Values at *actuator* level after gearbox
+# 	 c1 = moteus controller 1. Values at *motor* level (no gearbox)
+# 	 c2 = moteus controller 2. Values at *motor* level (no gearbox)
+# Note: Data assumes gearbox is 100pc efficient
+# 
+# kt_1 = 0.1095229868838896; kt_2 = 0.1095229868838896 from calibration logs
+# g1 = 1.0; g2 = 1.0
+# torque sensor: trs605-5
+# tsflip = False
+# load mode: idle
+# drive mode: current
+# load damping scale = 0.1
+# User comment: testing GRP in fast mode with the new faster ADC; new rotors; higher system priority; and some code modifications for speed
+time [s],time function [s],a1 q-axis cmd [A],a1 torque cmd [Nm],a1 position [rad],a1 velocity [rad/s],a1 torque [Nm],a1 q-axis [A],a2 q-axis cmd [A],a2 torque cmd [Nm],a2 position [rad],a2 velocity [rad/s],a2 torque [Nm],a2 q-axis [A],c1 mode,c1 position [rev],c1 vel [Hz],c1 torque [Nm],c1 voltage [V],c1 temp [C],c1 fault,c2 mode,c2 position [rev],c2 vel [Hz],c2 torque [Nm],c2 voltage [V],c2 temp [C],c2 fault,trs605-5 torque [Nm],motor temp [C],housing temp [C],ina1 voltage [V],ina1 current [A],ina1 power [W],ina2 voltage [V],ina2 current [A],ina2 power [W],

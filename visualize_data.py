@@ -63,12 +63,18 @@ def main() :
         headers = data.columns.values
         time = data[headers[0]]
         dt = np.abs(np.array(time[1:-1]) - np.array(time[0:-2]))
-        Ts = np.abs(np.mean(dt))
-        print("Ts mean= {}, Ts median = {}, sigma = {}, outlier fraction = {}".format(round(Ts, 5),\
-            round(np.median(dt), 5), round(np.std(dt), 5), sum(dt > 1.2*Ts)/len(dt)))
+        Ts = np.abs(np.median(dt))
+        print("Ts mean= {}, Ts median = {}, fs = {}, sigma = {}, outlier fraction = {}".format(\
+            round(np.mean(dt), 5), round(Ts, 5), round(1/Ts, 2), round(np.std(dt), 5), sum(dt > 1.3*Ts)/len(dt)))
         print('the following data series are available:')
         for i in range(num_cols) :
             print('\t{}:\t'.format(i) + headers[i])
+        
+        fig = plt.figure()
+        ax = fig.gca()
+        # ax.hist(dt, bins = 1000)
+        plt.plot(dt)
+        plt.show()
 
         fs = 1/Ts
         cutoff = 0.05*fs

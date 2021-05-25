@@ -183,9 +183,11 @@ async def main():
         args.drivemode = 'current'
         args.loadmode = 'idle'
         args.antihysteresis = False
-        args.fast = True
-        args.ultrafast = False
-        args.duration = 600
+        # args.fast = True
+        args.fast = False
+        args.ultrafast = True
+        # args.ultrafast = False
+        args.duration = 300
     elif args.standard_tv_sweep:
         args.step = None
         args.stair = False
@@ -216,7 +218,7 @@ async def main():
     print(zero_val)
 
     if args.fast: adc.start_adc(0, gain=GAIN, data_rate=DATARATE)
-    if not args.fast or args.ultrafast:
+    if not (args.fast or args.ultrafast):
         temp1 = adc.read_adc(2, gain=GAIN, data_rate=DATARATE); temp1 = adc2temp(temp1)
         temp2 = adc.read_adc(3, gain=GAIN, data_rate=DATARATE); temp2 = adc2temp(temp2)
     else:
@@ -292,11 +294,14 @@ async def main():
 
     safety_max = 8.1
     
-    Ts = 0.01
+    Ts = 0.0025
     GRP = GaussianRandomProcess(mean=0, amplitude=8, Ts=Ts)
     # Set GRP cutoff frequency here
     GRP.set_fc(45)
-    grp_tstart = 20 # GRP delayed start
+    grp_tstart = 0 # GRP delayed start
+    grp_n = 100
+    grp_buffer = GRP.sample(n=grp_n)
+    grp_ii = 0
 
     driving_i_cmd_vec = []
     loading_v_cmd_vec = []
@@ -325,6 +330,7 @@ async def main():
     t_old = 0
     t = 0
     ### MAIN TESTING LOOP
+    moteus_transport = c1._get_transport()
     while True:
         try:
             t = time.monotonic() - t0
@@ -346,7 +352,7 @@ async def main():
             GRP.set_Ts(dt_med)
             
             ### Cycle input function if requested
-            if not args.standard_tv_sweep and t_fcn > (max_cmd+incr)/rate:
+            if not args.standard_tv_sweep and not args.standard_grp_test and t_fcn > (max_cmd+incr)/rate:
                 # Swap driving and loading actuators
                 if not args.fast and not args.ultrafast:
                     ctemp = ca
@@ -400,7 +406,12 @@ async def main():
                     # variable low frequency sweep to get more low frequency data
                     cmd = 2.0*math.sin((15/grp_tstart)*t*2*np.pi  *  t)
                 else:
-                    cmd = GRP.sample()[0]
+                    if grp_ii >= grp_n:
+                        grp_buffer = GRP.sample(n=grp_n)
+                        grp_ii = 0
+                        # print("grp_refresh")
+                    cmd = grp_buffer[grp_ii]
+                    grp_ii += 1
             elif args.standard_tv_sweep:
                 cmd = driving_i_cmd_vec[cycle]
                 load_v = loading_v_cmd_vec[cycle]
@@ -418,30 +429,50 @@ async def main():
             if min(temp1, temp2) < TP_unlatch and max(temp1, temp2) < TM_unlatch and overtemp:
                 overtemp = False
 
+            moteus_cmds = []
             ### Load Actuator
             if not args.fast and not args.ultrafast:
                 if args.loadmode == 'damping' or args.loadmode == 'damp':
-                    replyb = (await cb.set_position(position=math.nan, velocity=0,\
+                    # replyb = (await cb.set_position(position=math.nan, velocity=0,\
+                    #     watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
+                    moteus_cmds.append(cb.make_position(position=math.nan, velocity=0,\
                         watchdog_timeout=1.0, kp_scale=0.0, kd_scale=damping, query=True))
                 elif args.loadmode == 'stall':
-                    replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
+                    # replyb = (await cb.set_position(position=0.0, velocity=math.nan,\
+                    #     watchdog_timeout=2.0, kp_scale=15, kd_scale=5, query=True))
+                    moteus_cmds.append(cb.make_position(position=0.0, velocity=math.nan,\
                         watchdog_timeout=2.0, kp_scale=15, kd_scale=5, query=True))
                 elif args.loadmode == 'velocity':
-                    replyb = (await cb.set_position(position=math.nan, velocity=load_v,\
+                    # replyb = (await cb.set_position(position=math.nan, velocity=load_v,\
+                    #     watchdog_timeout=2.0, kp_scale=5, kd_scale=5, query=True))
+                    moteus_cmds.append(cb.make_position(position=math.nan, velocity=load_v,\
                         watchdog_timeout=2.0, kp_scale=5, kd_scale=5, query=True))
+                # elif args.loadmode == 'idle':
+                #     replyb = replyb
                 else:
-                    replyb = await cb.set_stop(query=True)
+                    # replyb = await cb.set_stop(query=True)
+                    moteus_cmds.append(cb.make_stop(query=True))
                 
             ### Driving Actuator
             if args.drivemode == 'current':
                 cmd = min(max(cmd, -safety_max), safety_max)
-                replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+                # replya = (await ca.set_current(q_A=cmd, d_A=0.0, query=True))
+                moteus_cmds.append(ca.make_current(q_A=cmd, d_A=0.0, query=True))
             elif args.drivemode == 'velocity':
-                replya = (await ca.set_position(position=math.nan, velocity=cmd,\
+                # replya = (await ca.set_position(position=math.nan, velocity=cmd,\
+                #     watchdog_timeout=2.0, query=True))
+                moteus_cmds.append(ca.make_position(position=math.nan, velocity=cmd,\
                     watchdog_timeout=2.0, query=True))
             else:
                 cmd = 0
-                replya = await ca.set_stop(query=True)
+                # replya = await ca.set_stop(query=True)
+                moteus_cmds.append(ca.make_stop(query=True))
+
+            # print(moteus_cmds)
+            
+            replies = await moteus_transport.cycle(moteus_cmds)
+            if len(replies) > 1: replyb = replies[0]; replya = replies[1]
+            else: replya = replies[0]
 
             ### Keep track of data when actuators swap driving/driven
             if orient_a_1:
@@ -506,16 +537,18 @@ async def main():
                 return
 
             ### This sleep seems to help with loop rate consistency
-            if args.fast: await asyncio.sleep(0.001)
+            # if args.fast: await asyncio.sleep(0.001)
 
         except (KeyboardInterrupt, SystemExit):
             print("\nCaught keyboard interrupt; exiting...")
+            print(dt_med)
             await finish(c1, c2, data)
             # sys.exit()
             return
         except:
             print("\n\nUnanticipated exception: something went wrong\n\n")
             await finish(c1, c2, data)
+            print(dt_med)
             raise
             # sys.exit()
             return

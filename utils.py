@@ -59,7 +59,7 @@ class GaussianRandomProcess:
     def __init__(self, mean=0, amplitude=1, Ts=0.01):
         self.mean = mean
         self.amplitude = amplitude
-        self.buffer = np.zeros(100)
+        self.buffer = np.zeros(200)
         self.Ts = Ts
         self.fc = 0.45/self.Ts
         self.filtered_buffer = butter_lowpass_filter(self.buffer, self.fc, 1/self.Ts)
@@ -77,7 +77,7 @@ class GaussianRandomProcess:
         data *= self.amplitude
         data += self.mean
         self.buffer[0:n] = data
-        self.filtered_buffer = butter_lowpass_filter(self.buffer, self.fc, 1/self.Ts)
+        self.filtered_buffer = butter_lowpass_filter(self.buffer, self.fc, 1/self.Ts, order=4)
     
     def sample(self, n=1, cycle=True):
         if cycle: self.cycle(n)
