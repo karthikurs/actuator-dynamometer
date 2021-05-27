@@ -183,10 +183,10 @@ async def main():
         args.drivemode = 'current'
         args.loadmode = 'idle'
         args.antihysteresis = False
-        # args.fast = True
-        args.fast = False
-        args.ultrafast = True
-        # args.ultrafast = False
+        args.fast = True
+        # args.fast = False
+        # args.ultrafast = True
+        args.ultrafast = False
         args.duration = 300
     elif args.standard_tv_sweep:
         args.step = None
@@ -537,7 +537,7 @@ async def main():
                 return
 
             ### This sleep seems to help with loop rate consistency
-            # if args.fast: await asyncio.sleep(0.001)
+            if args.fast: await asyncio.sleep(0.0001)
 
         except (KeyboardInterrupt, SystemExit):
             print("\nCaught keyboard interrupt; exiting...")
