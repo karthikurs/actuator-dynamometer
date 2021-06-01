@@ -23,9 +23,9 @@ async def e_stop():
     await c2.set_stop()
 
 async def init_controllers():
-    print("bringing up CAN...")
-    os.system("sudo ip link set can0 down")
-    os.system("sudo ip link set can0 up type can   tq 25 prop-seg 13 phase-seg1 12 phase-seg2 14 sjw 5   dtq 25 dprop-seg 3 dphase-seg1 1 dphase-seg2 3 dsjw 3   restart-ms 1000 fd on")
+    # print("bringing up CAN...")
+    # os.system("sudo ip link set can0 down")
+    # os.system("sudo ip link set can0 up type can   tq 25 prop-seg 13 phase-seg1 12 phase-seg2 14 sjw 5   dtq 25 dprop-seg 3 dphase-seg1 1 dphase-seg2 3 dsjw 3   restart-ms 1000 fd on")
     c1 = moteus.Controller(id=1)
     c2 = moteus.Controller(id=2)
     
@@ -60,7 +60,7 @@ def parse_reply(reply, g):
     return pos*np.pi*2/g, vel*np.pi*2/g, trq*g
 
 def raw_reply_list(reply):
-    data = [val for key, val in reply.values.items()]
+    data = [val for key, val in reply.values.items()] if reply is not None else [0]*7
     return data
 
 def raw_reply_headers():

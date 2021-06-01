@@ -14,6 +14,7 @@ import asyncio
 import sys
 import os
 import argparse
+import argcomplete
 import csv
 import json
 import time
@@ -56,7 +57,7 @@ async def finish(c1, c2, data=None):
     await c1.set_stop()
     await c2.set_stop()
     await asyncio.sleep(0.1)
-    os.system("sudo ip link set can0 down")
+    # os.system("sudo ip link set can0 down")
 
     print("done.\n\n")
 
@@ -122,6 +123,7 @@ async def main():
     standard_test_group.add_argument("--standard-tv-sweep",\
         help="runs standardized torque-velocity sweep.\nNOTE: This overrides other options",action='store_true')
 
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     g1 = args.gear1 if args.gear1 is not None else 6.0
@@ -472,7 +474,7 @@ async def main():
             
             replies = await moteus_transport.cycle(moteus_cmds)
             if len(replies) > 1: replyb = replies[0]; replya = replies[1]
-            else: replya = replies[0]
+            else: replya = replies[0]; replyb = None
 
             ### Keep track of data when actuators swap driving/driven
             if orient_a_1:
@@ -487,8 +489,8 @@ async def main():
                 cmd2 = cmd
 
             # Position, velocity, torque
-            p1, v1, t1 = parse_reply(reply1, g1)
-            p2, v2, t2 = parse_reply(reply2, g2)
+            p1, v1, t1 = parse_reply(reply1, g1) if reply1 is not None else 0,0,0
+            p2, v2, t2 = parse_reply(reply2, g2) if reply2 is not None else 0,0,0
 
             ### Read from analog sensors (torque, thermistors, power meters)
             if not args.fast and not args.ultrafast:
@@ -537,7 +539,7 @@ async def main():
                 return
 
             ### This sleep seems to help with loop rate consistency
-            if args.fast: await asyncio.sleep(0.0001)
+            # if args.fast: await asyncio.sleep(0.0001)
 
         except (KeyboardInterrupt, SystemExit):
             print("\nCaught keyboard interrupt; exiting...")
