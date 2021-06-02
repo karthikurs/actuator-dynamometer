@@ -33,6 +33,7 @@ private:
   uint8_t _addr;
   bool _begun;
   size_t _maxBufferSize;
+  char _fourbuf[4];
 };
 
 #endif // I2CDevice_h

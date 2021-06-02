@@ -141,8 +141,11 @@ bool I2CDevice::w_read_rs(const uint8_t *regaddr,
 bool I2CDevice::read_reg(const uint8_t *regaddr,
                           uint8_t *read_buffer,
                           size_t read_len) {
-  bcm2835_i2c_write_read_rs(regaddr, 1, read_buffer, 0);
-  return bcm2835_i2c_read(read_buffer, read_len);
+  // bcm2835_i2c_write_read_rs(regaddr, 1, read_buffer, 0);
+  bcm2835_i2c_write(regaddr, 1);
+  bool success = bcm2835_i2c_read(read_buffer, read_len);
+  for(size_t ii = 0; ii < read_len; ++ii) std::cerr << "ii = " << ii << ", buf[ii] = " << std::hex << (int)read_buffer[ii] << std::dec << std::endl;
+  return success;
 }
 
 

@@ -31,6 +31,8 @@
 #include "Adafruit_ADS1X15.h"
 #include <iostream>
 
+uint8_t conv_buf[2];
+
 /**************************************************************************/
 /*!
     @brief  Instantiates a new ADS1015 class w/appropriate properties
@@ -151,15 +153,15 @@ uint16_t Adafruit_ADS1X15::readADC_SingleEnded(uint8_t channel) {
 
   // Write config register to the ADC
   writeRegister(ADS1X15_REG_POINTER_CONFIG, config);
-  std::cerr << "writeReg in readADC done, config = " << (int)config << std::endl;
+  // std::cerr << "writeReg in readADC done, config = " << (int)config << std::endl;
   // uint16_t config_temp = readRegister(ADS1X15_REG_POINTER_CONFIG);
   // std::cerr << config_temp << std::endl;
   // writeRegister(ADS1X15_REG_POINTER_CONFIG, config);
   // std::cerr << "writeReg in readADC done, config = " << (int)config << std::endl;
 
   // Wait for the conversion to complete
-  while (!conversionComplete())
-    ;
+  // while (!conversionComplete())
+  //   ;
   // std::cerr << "done waiting for conversion" << std::endl;
 
   // Read the conversion results
@@ -403,11 +405,12 @@ void Adafruit_ADS1X15::writeRegister(uint8_t reg, uint16_t value) {
 /**************************************************************************/
 uint16_t Adafruit_ADS1X15::readRegister(uint8_t reg) {
   buffer[0] = reg;
+  
   // m_i2c_dev->write(buffer, 1);
   // bcm2835_delayMicroseconds(1000);
   // m_i2c_dev->read(buffer, 2);
   // m_i2c_dev->w_read_rs(buffer, buffer, 2);
-  m_i2c_dev->read_reg(buffer, buffer, 2);
-  std::cerr << "write in readRegister() done, reg = " << (int)reg << std::endl;
-  return ((buffer[0] << 8) | buffer[1]);
+  m_i2c_dev->read_reg(buffer, conv_buf, 2);
+  // std::cerr << "write in readRegister() done, reg = " << (int)reg << std::endl;
+  return ((conv_buf[0] << 8) | conv_buf[1]);
 }
