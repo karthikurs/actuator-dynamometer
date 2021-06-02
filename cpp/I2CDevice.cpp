@@ -83,19 +83,19 @@ bool I2CDevice::write(uint8_t *buffer, size_t len, bool stop,
 
   // Write the prefix data (usually an address)
   if ((prefix_len != 0) && (prefix_buffer != NULL)) {
-    // if (bcm2835_i2c_write(prefix_buffer, prefix_len) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
-    if (bcm2835_i2c_write_read_rs(prefix_buffer, prefix_len, prefix_buffer, 0) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
+    if (bcm2835_i2c_write(prefix_buffer, prefix_len) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
+    // if (bcm2835_i2c_write_read_rs(prefix_buffer, prefix_len, prefix_buffer, 0) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
       return false;
     }
   }
 
   // Write the data itself
-  // if (bcm2835_i2c_write(buffer, len) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
-  if (bcm2835_i2c_write_read_rs(buffer, len, buffer, 0) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
+  if (bcm2835_i2c_write(buffer, len) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
+  // if (bcm2835_i2c_write_read_rs(buffer, len, buffer, 0) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
     return false;
   }
 
-  bcm2835_i2c_end();
+  // bcm2835_i2c_end();
   return true;
 }
 
