@@ -35,9 +35,9 @@ int main() {
     std::cout << volts0 << ", " << volts1 << ", " << volts2 << ", " << volts3 << std::endl;
     // std::cout << adc0 << ", " << adc1 << ", " << adc2 << ", " << adc3 << std::endl;
     ina1.prime_i2c();
-    std::cout << ina1.readBusVoltage() << ", ";
+    std::cout << "ina1: V = " << ina1.readBusVoltage()/1000 << ", I = " << ina1.readCurrent()/1000 << "\n";
     ina2.prime_i2c();
-    std::cerr << ina2.readBusVoltage() << std::endl;
+    std::cerr << "ina2: V = " << ina2.readBusVoltage()/1000 << ", I = " << ina2.readCurrent()/1000 << std::endl;
   }
   std::cout << std::endl;
   bcm2835_i2c_end();

@@ -126,7 +126,7 @@ float Adafruit_INA260::readBusVoltage(void) {
   // return bus_voltage.read() * 1.25;
   reg_buf[0] = INA260_REG_BUSVOLTAGE;
   i2c_dev->read_reg(reg_buf, data_buf, 2);
-  return (1.25/1000)*(int16_t)((data_buf[0] << 8) | data_buf[1]);
+  return 1.25*(int16_t)((data_buf[0] << 8) | data_buf[1]);
 }
 /**************************************************************************/
 /*!
