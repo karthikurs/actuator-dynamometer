@@ -138,6 +138,14 @@ bool I2CDevice::w_read_rs(const uint8_t *regaddr,
   return bcm2835_i2c_read_register_rs(regaddr, read_buffer, read_len);
 }
 
+bool I2CDevice::read_reg(const uint8_t *regaddr,
+                          uint8_t *read_buffer,
+                          size_t read_len) {
+  bcm2835_i2c_write_read_rs(regaddr, 1, read_buffer, 0);
+  return bcm2835_i2c_read(read_buffer, read_len);
+}
+
+
 /*!
  *    @brief  Returns the 7-bit address of this device
  *    @return The 7-bit address of this device

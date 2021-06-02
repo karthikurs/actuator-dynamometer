@@ -151,9 +151,11 @@ uint16_t Adafruit_ADS1X15::readADC_SingleEnded(uint8_t channel) {
 
   // Write config register to the ADC
   writeRegister(ADS1X15_REG_POINTER_CONFIG, config);
-  std::cerr << "writeReg in read done, config = " << (int)config << std::endl;
+  std::cerr << "writeReg in readADC done, config = " << (int)config << std::endl;
+  uint16_t config_temp = readRegister(ADS1X15_REG_POINTER_CONFIG);
+  std::cerr << config_temp << std::endl;
   writeRegister(ADS1X15_REG_POINTER_CONFIG, config);
-  std::cerr << "writeReg in read done, config = " << (int)config << std::endl;
+  std::cerr << "writeReg in readADC done, config = " << (int)config << std::endl;
 
   // Wait for the conversion to complete
   while (!conversionComplete())
@@ -404,7 +406,8 @@ uint16_t Adafruit_ADS1X15::readRegister(uint8_t reg) {
   // m_i2c_dev->write(buffer, 1);
   // bcm2835_delayMicroseconds(1000);
   // m_i2c_dev->read(buffer, 2);
-  m_i2c_dev->w_read_rs(buffer, buffer, 2);
+  // m_i2c_dev->w_read_rs(buffer, buffer, 2);
+  m_i2c_dev->read_reg(buffer, buffer, 2);
   std::cerr << "write in readRegister() done, reg = " << (int)reg << std::endl;
   return ((buffer[0] << 8) | buffer[1]);
 }

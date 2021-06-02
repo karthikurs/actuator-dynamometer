@@ -12,6 +12,9 @@ public:
   bool detected(void);
 
   bool read(uint8_t *buffer, size_t len, bool stop = true);
+  bool read_reg(const uint8_t *regaddr,
+                uint8_t *read_buffer,
+                size_t read_len);
   bool write(uint8_t *buffer, size_t len, bool stop = true,
              uint8_t *prefix_buffer = NULL, size_t prefix_len = 0);
   bool write_then_read(const uint8_t *write_buffer, size_t write_len,
