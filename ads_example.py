@@ -58,12 +58,12 @@ while True:
         # Read the specified ADC channel using the previously set gain value.
         values[i] = adc.read_adc(i, gain=GAIN, data_rate=3300)
         # values[i] = round(6.144*(2.0*values[i]/(65536)), 3)
-        if i == 2 or i == 3: values[i] = adc2temp(values[i])
-        elif i == 0: 
+        # if i == 2 or i == 3: values[i] = adc2temp(values[i])
+        # elif i == 0: 
             # values[i] = round(4.096/GAIN*(2.0*values[i]/(65536)), 6)s
             # values[i] = -2.0*(values[i]-2.500) * 18.0/5.0
             # values[i] = -2.0*(values[i]- (3.3/2)) * 5.0/3.3
-            values[i] = adc2futek(values[i], gain=5/5)
+            # values[i] = adc2futek(values[i], gain=5/5)
             # values[i] = 4.096*2*values[i]/4096.0
 
         # Note you can also pass in an optional data_rate parameter that controls
