@@ -408,3 +408,7 @@ uint16_t Adafruit_ADS1X15::readRegister(uint8_t reg) {
   m_i2c_dev->read_reg(buffer, conv_buf, 2);
   return ((conv_buf[0] << 8) | conv_buf[1]);
 }
+
+void Adafruit_ADS1X15::prime_i2c() {
+  m_i2c_dev->set_address();
+}

@@ -160,6 +160,8 @@ public:
   void setDataRate(uint16_t rate);
   uint16_t getDataRate();
 
+  void prime_i2c();
+
 private:
   bool conversionComplete();
   void writeRegister(uint8_t reg, uint16_t value);

@@ -24,8 +24,8 @@ I2CDevice::I2CDevice(uint8_t addr) {
  */
 bool I2CDevice::begin(bool addr_detect) {
   // std::cerr << "trying to begin in I2CDevice" << std::endl;
-  _begun = bcm2835_i2c_begin();
-  bcm2835_i2c_setSlaveAddress(_addr);
+  // _begun = bcm2835_i2c_begin();
+  // bcm2835_i2c_setSlaveAddress(_addr);
   // bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
   bcm2835_i2c_set_baudrate(390000);
   // bcm2835_i2c_setClockDivider(626);
@@ -34,6 +34,15 @@ bool I2CDevice::begin(bool addr_detect) {
     return detected();
   }
   return true;
+}
+
+void I2CDevice::set_address(uint8_t addr) {
+  bcm2835_i2c_setSlaveAddress(addr);
+}
+
+
+void I2CDevice::set_address() {
+  bcm2835_i2c_setSlaveAddress(_addr);
 }
 
 /*!
@@ -164,4 +173,35 @@ uint8_t I2CDevice::address(void) { return _addr; }
 bool I2CDevice::setSpeed(uint32_t desiredclk) {
   bcm2835_i2c_set_baudrate(desiredclk);
   return true;
+}
+
+uint16_t I2CDevice::read_bits(const uint8_t *regaddr,
+                          uint8_t bits,
+                          uint8_t shift) {
+  read_reg(regaddr, _data_buf, 2);
+  uint16_t val = ((_data_buf[0] << 8) | _data_buf[1]);
+
+  val >>= shift;
+  return val & ((1 << (bits)) - 1);
+}
+
+void I2CDevice::write_bits(const uint8_t *regaddr,
+                          uint8_t bits,
+                          uint8_t shift,
+                          uint16_t data) {
+  read_reg(regaddr, _data_buf, 2);
+  uint16_t val = ((_data_buf[0] << 8) | _data_buf[1]);
+
+  // mask off the data before writing
+  uint16_t mask = (1 << (bits)) - 1;
+  data &= mask;
+
+  mask <<= shift;
+  val &= ~mask;          // remove the current data at that spot
+  val |= data << shift; // and add in the new data
+
+  _data_buf[0] = (val & 0xFF00) >> 8;
+  _data_buf[1] = val & 0xFF;
+
+  write(_data_buf, 2);
 }

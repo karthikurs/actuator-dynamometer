@@ -1,21 +1,28 @@
 #include <iostream>
 #include "Adafruit_ADS1X15.h"
+#include "Adafruit_INA260.h"
 
 
 int main() {
   Adafruit_ADS1015 ads;
+  Adafruit_INA260 ina1;
+  Adafruit_INA260 ina2;
   uint16_t adc0, adc1, adc2, adc3;
   float volts0, volts1, volts2, volts3;
   if (!bcm2835_init()) {
     std::cout << "bcm2835_init failed. Are you running as root??\n" << std::endl;
     return 1;
   }
+  bcm2835_i2c_begin();
   ads.begin(0x48);
   ads.setGain(adsGain_t::GAIN_ONE);
   ads.setDataRate(RATE_ADS1015_3300SPS);
   std::cout << "set ads params" << std::endl;
-  for(size_t ii = 0; ii < 10; ++ii) {
 
+  ina1.begin(0x40);
+  ina2.begin(0x41);
+  for(size_t ii = 0; ii < 10; ++ii) {
+    ads.prime_i2c();
     adc0 = ads.readADC_SingleEnded(0);
     adc1 = ads.readADC_SingleEnded(1);
     adc2 = ads.readADC_SingleEnded(2);
@@ -26,7 +33,11 @@ int main() {
     volts2 = ads.computeVolts(adc2);
     volts3 = ads.computeVolts(adc3);
     std::cout << volts0 << ", " << volts1 << ", " << volts2 << ", " << volts3 << std::endl;
-    std::cout << adc0 << ", " << adc1 << ", " << adc2 << ", " << adc3 << std::endl;
+    // std::cout << adc0 << ", " << adc1 << ", " << adc2 << ", " << adc3 << std::endl;
+    ina1.prime_i2c();
+    std::cout << ina1.readBusVoltage() << ", ";
+    ina2.prime_i2c();
+    std::cerr << ina2.readBusVoltage() << std::endl;
   }
   std::cout << std::endl;
   bcm2835_i2c_end();

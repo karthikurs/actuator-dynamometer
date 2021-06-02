@@ -8,6 +8,8 @@ class I2CDevice {
 public:
   I2CDevice(uint8_t addr);
   uint8_t address(void);
+  void set_address(uint8_t addr);
+  void set_address();
   bool begin(bool addr_detect = true);
   bool detected(void);
 
@@ -29,11 +31,21 @@ public:
    *    @return The size of the Wire receive/transmit buffer */
   size_t maxBufferSize() { return _maxBufferSize; }
 
+  uint16_t read_bits(const uint8_t *regaddr,
+                          uint8_t bits,
+                          uint8_t shift);
+
+  void write_bits(const uint8_t *regaddr,
+                  uint8_t bits,
+                  uint8_t shift,
+                  uint16_t data);
+
 private:
   uint8_t _addr;
   bool _begun;
   size_t _maxBufferSize;
   char _fourbuf[4];
+  uint8_t _data_buf[2];
 };
 
 #endif // I2CDevice_h
