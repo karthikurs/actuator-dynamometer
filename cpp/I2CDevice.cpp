@@ -26,7 +26,9 @@ bool I2CDevice::begin(bool addr_detect) {
   std::cerr << "trying to begin in I2CDevice" << std::endl;
   _begun = bcm2835_i2c_begin();
   bcm2835_i2c_setSlaveAddress(_addr);
-  bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
+  // bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
+  bcm2835_i2c_set_baudrate(50000);
+  // bcm2835_i2c_setClockDivider(626);
 
   if (addr_detect) {
     return detected();
@@ -46,11 +48,12 @@ bool I2CDevice::detected(void) {
   }
 
   std::cerr << "trying to detect" << std::endl;
-  bcm2835_i2c_setSlaveAddress(_addr);
+  // bcm2835_i2c_setSlaveAddress(_addr);
 
   // A basic scanner, see if it ACK's
   char a;
   return bcm2835_i2c_read(&a, 0) ==  bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK;
+  // return true;
 }
 
 /*!
@@ -66,8 +69,8 @@ bool I2CDevice::detected(void) {
  *    @param  stop Whether to send an I2C STOP signal on write
  *    @return True if write was successful, otherwise false.
  */
-bool I2CDevice::write(const uint8_t *buffer, size_t len, bool stop,
-                               const uint8_t *prefix_buffer,
+bool I2CDevice::write(uint8_t *buffer, size_t len, bool stop,
+                               uint8_t *prefix_buffer,
                                size_t prefix_len) {
   if ((len + prefix_len) > maxBufferSize()) {
     // currently not guaranteed to work if more than 32 bytes!
@@ -80,13 +83,15 @@ bool I2CDevice::write(const uint8_t *buffer, size_t len, bool stop,
 
   // Write the prefix data (usually an address)
   if ((prefix_len != 0) && (prefix_buffer != NULL)) {
-    if (bcm2835_i2c_write(prefix_buffer, prefix_len) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
+    // if (bcm2835_i2c_write(prefix_buffer, prefix_len) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
+    if (bcm2835_i2c_write_read_rs(prefix_buffer, prefix_len, prefix_buffer, 0) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
       return false;
     }
   }
 
   // Write the data itself
-  if (bcm2835_i2c_write(buffer, len) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
+  // if (bcm2835_i2c_write(buffer, len) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
+  if (bcm2835_i2c_write_read_rs(buffer, len, buffer, 0) != bcm2835I2CReasonCodes::BCM2835_I2C_REASON_OK) {
     return false;
   }
 
@@ -125,6 +130,12 @@ bool I2CDevice::write_then_read(const uint8_t *write_buffer,
     return false;
   }
   return read(read_buffer, read_len);
+}
+
+bool I2CDevice::w_read_rs(const uint8_t *regaddr,
+                          uint8_t *read_buffer,
+                          size_t read_len) {
+  return bcm2835_i2c_read_register_rs(regaddr, read_buffer, read_len);
 }
 
 /*!

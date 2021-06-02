@@ -62,10 +62,8 @@ Adafruit_ADS1115::Adafruit_ADS1115() {
 */
 /**************************************************************************/
 void Adafruit_ADS1X15::begin(uint8_t i2c_addr) {
-  // std::cerr << "trying to begin in ADS" << std::endl;
   m_i2c_dev = new I2CDevice(i2c_addr);
-  // std::cerr << "after new" << std::endl;
-  m_i2c_dev->begin();
+  m_i2c_dev->begin(false);
 }
 
 /**************************************************************************/
@@ -113,7 +111,7 @@ uint16_t Adafruit_ADS1X15::getDataRate() { return m_dataRate; }
     @return the ADC reading
 */
 /**************************************************************************/
-int16_t Adafruit_ADS1X15::readADC_SingleEnded(uint8_t channel) {
+uint16_t Adafruit_ADS1X15::readADC_SingleEnded(uint8_t channel) {
   if (channel > 3) {
     return 0;
   }
@@ -151,15 +149,16 @@ int16_t Adafruit_ADS1X15::readADC_SingleEnded(uint8_t channel) {
   // Set 'start single-conversion' bit
   config |= ADS1X15_REG_CONFIG_OS_SINGLE;
 
-  std::cerr << "about to call writeRegister() in ADS" << std::endl;
-
   // Write config register to the ADC
   writeRegister(ADS1X15_REG_POINTER_CONFIG, config);
-  std::cerr << "done with call writeRegister() in ADS" << std::endl;
+  std::cerr << "writeReg in read done, config = " << (int)config << std::endl;
+  writeRegister(ADS1X15_REG_POINTER_CONFIG, config);
+  std::cerr << "writeReg in read done, config = " << (int)config << std::endl;
 
   // Wait for the conversion to complete
-  // while (!conversionComplete())
-  //   ;
+  while (!conversionComplete())
+    ;
+  std::cerr << "done waiting for conversion" << std::endl;
 
   // Read the conversion results
   return getLastConversionResults();
@@ -312,20 +311,21 @@ void Adafruit_ADS1X15::startComparator_SingleEnded(uint8_t channel,
     @return the last ADC reading
 */
 /**************************************************************************/
-int16_t Adafruit_ADS1X15::getLastConversionResults() {
+uint16_t Adafruit_ADS1X15::getLastConversionResults() {
   // Read the conversion results
   uint16_t res = readRegister(ADS1X15_REG_POINTER_CONVERT) >> m_bitShift;
-  std::cerr << res << " " << m_bitShift << std::endl;
+  // return (int16_t)res;
   if (m_bitShift == 0) {
-    return (int16_t)res;
+    return res;
   } else {
     // Shift 12-bit results right 4 bits for the ADS1015,
     // making sure we keep the sign bit intact
+    // res >>= 4;
     if (res > 0x07FF) {
       // negative number - extend the sign to 16th bit
       res |= 0xF000;
     }
-    return (int16_t)res;
+    return res;
   }
 }
 
@@ -384,13 +384,10 @@ bool Adafruit_ADS1X15::conversionComplete() {
 */
 /**************************************************************************/
 void Adafruit_ADS1X15::writeRegister(uint8_t reg, uint16_t value) {
-  std::cerr << "in writeRegister, reg = " << (int)reg
-    << ", m_bitShift = " << (int)m_bitShift
-    << ", value = " << (int)value << std::endl;
   buffer[0] = reg;
   buffer[1] = value >> 8;
   buffer[2] = value & 0xFF;
-  std::cerr << m_i2c_dev->write(buffer, 3) << std::endl;
+  m_i2c_dev->write(buffer, 3);
 }
 
 /**************************************************************************/
@@ -403,9 +400,11 @@ void Adafruit_ADS1X15::writeRegister(uint8_t reg, uint16_t value) {
 */
 /**************************************************************************/
 uint16_t Adafruit_ADS1X15::readRegister(uint8_t reg) {
-  std::cerr << "in readRegister, reg = " << (int)reg << ", m_bitShift = " << (int)m_bitShift << std::endl;
   buffer[0] = reg;
-  std::cerr << m_i2c_dev->write(buffer, 1) << std::endl;
-  std::cerr << m_i2c_dev->read(buffer, 2) << std::endl;
+  // m_i2c_dev->write(buffer, 1);
+  // bcm2835_delayMicroseconds(1000);
+  // m_i2c_dev->read(buffer, 2);
+  m_i2c_dev->w_read_rs(buffer, buffer, 2);
+  std::cerr << "write in readRegister() done, reg = " << (int)reg << std::endl;
   return ((buffer[0] << 8) | buffer[1]);
 }
