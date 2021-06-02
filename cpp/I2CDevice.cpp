@@ -23,11 +23,11 @@ I2CDevice::I2CDevice(uint8_t addr) {
  *    @return True if I2C initialized and a device with the addr found
  */
 bool I2CDevice::begin(bool addr_detect) {
-  std::cerr << "trying to begin in I2CDevice" << std::endl;
+  // std::cerr << "trying to begin in I2CDevice" << std::endl;
   _begun = bcm2835_i2c_begin();
   bcm2835_i2c_setSlaveAddress(_addr);
   // bcm2835_i2c_setClockDivider(BCM2835_I2C_CLOCK_DIVIDER_626);
-  bcm2835_i2c_set_baudrate(50000);
+  bcm2835_i2c_set_baudrate(390000);
   // bcm2835_i2c_setClockDivider(626);
 
   if (addr_detect) {
@@ -144,7 +144,6 @@ bool I2CDevice::read_reg(const uint8_t *regaddr,
   // bcm2835_i2c_write_read_rs(regaddr, 1, read_buffer, 0);
   bcm2835_i2c_write(regaddr, 1);
   bool success = bcm2835_i2c_read(read_buffer, read_len);
-  for(size_t ii = 0; ii < read_len; ++ii) std::cerr << "ii = " << ii << ", buf[ii] = " << std::hex << (int)read_buffer[ii] << std::dec << std::endl;
   return success;
 }
 

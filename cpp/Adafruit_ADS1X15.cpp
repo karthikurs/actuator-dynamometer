@@ -160,8 +160,8 @@ uint16_t Adafruit_ADS1X15::readADC_SingleEnded(uint8_t channel) {
   // std::cerr << "writeReg in readADC done, config = " << (int)config << std::endl;
 
   // Wait for the conversion to complete
-  // while (!conversionComplete())
-  //   ;
+  while (!conversionComplete())
+    ;
   // std::cerr << "done waiting for conversion" << std::endl;
 
   // Read the conversion results
@@ -405,12 +405,6 @@ void Adafruit_ADS1X15::writeRegister(uint8_t reg, uint16_t value) {
 /**************************************************************************/
 uint16_t Adafruit_ADS1X15::readRegister(uint8_t reg) {
   buffer[0] = reg;
-  
-  // m_i2c_dev->write(buffer, 1);
-  // bcm2835_delayMicroseconds(1000);
-  // m_i2c_dev->read(buffer, 2);
-  // m_i2c_dev->w_read_rs(buffer, buffer, 2);
   m_i2c_dev->read_reg(buffer, conv_buf, 2);
-  // std::cerr << "write in readRegister() done, reg = " << (int)reg << std::endl;
   return ((conv_buf[0] << 8) | conv_buf[1]);
 }
