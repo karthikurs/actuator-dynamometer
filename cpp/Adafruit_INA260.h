@@ -152,11 +152,7 @@ public:
   void setAveragingCount(INA260_AveragingCount count);
 
   void prime_i2c();
-
-  // Adafruit_I2CRegister *Config, ///< BusIO Register for Config
-  //     *MaskEnable,              ///< BusIO Register for MaskEnable
-  //     *AlertLimit;              ///< BusIO Register for AlertLimit
-
+  
 private:
   I2CDevice *i2c_dev;
 };
