@@ -1,45 +1,25 @@
 # VPATH = src/adafruit/ src/main/ build/
-# vpath %.h src/adafruit src/main
-# vpath %.cpp src/adafruit src/main
-# vpath %.o build
-VPATH = ./src/adafruit ./src/main ./build
+vpath %.h src
+vpath %.cpp src
+vpath %.o build
+# VPATH = ./src/adafruit ./src/main ./build
 
-CFLAGS := -ggdb -c -pthread
+CFLAGS := -ggdb -c -pthread -fpermissive
 
-MODULES := adafruit main
-SRC_DIR := $(addprefix src/,$(MODULES))
+SRC_DIR := ./src
 BUILD_DIR := ./build
+OBJS := Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o
 
 all: ads_test
 
-ads_test : ads_test.cpp Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o
+ads_test : ads_test.cpp $(OBJS)
 	@echo "$@"
-	g++ -ggdb -o $^ -lbcm2835
+	g++ -ggdb $< $(foreach obj,$(OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) -o $@ -lbcm2835
 
-# ads_test.o : ads_test.cpp 
-# 	@echo "    $@"
-# 	g++ $(CFLAGS) $< -o $@ -I $(SRC_DIR)
-
-# Adafruit_%.o : Adafruit_%.cpp Adafruit_%.h
-# 	@echo "    $@"
-# 	g++ $(CFLAGS) $< -o build/$@ -I $(SRC_DIR)
-
-# Adafruit_ADS1X15.o : Adafruit_ADS1X15.cpp Adafruit_ADS1X15.h I2CDevice.o
-# 	@echo "    $@"
-# 	g++ $(CFLAGS) $< -o $@
-
-# Adafruit_INA260.o : Adafruit_INA260.cpp Adafruit_INA260.h I2CDevice.o
-# 	@echo "    $@"
-# 	g++ $(CFLAGS) $< -o $@
-
-# I2CDevice.o : I2CDevice.cpp I2CDevice.h
-# 	@echo "    $@"
-# 	g++ $(CFLAGS) $< -fpermissive -o build/$@ -I $(SRC_DIR)
 
 %.o : %.cpp %.h
 	@echo "    $@"
-	g++ $(CFLAGS) $< -fpermissive -o build/$@ -I $(SRC_DIR)
-
+	g++ $(CFLAGS) $< -o build/$@
 
 # BUILD_DIR := build
 

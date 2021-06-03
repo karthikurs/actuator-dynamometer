@@ -41,8 +41,8 @@ int main() {
     // std::cout << volts0 << ", " << volts1 << ", " << volts2 << ", " << volts3 << "\n";
     std::cout << volts0 << "\n";
     // std::cout << adc0 << ", " << adc1 << ", " << adc2 << ", " << adc3 << std::endl;
-    // ina1.prime_i2c();
-    // std::cout << "ina1: V = " << ina1.readBusVoltage()/1000 << ", I = " << ina1.readCurrent()/1000 << "\n";
+    ina1.prime_i2c();
+    std::cout << "ina1: V = " << ina1.readBusVoltage()/1000 << ", I = " << ina1.readCurrent()/1000 << "\n";
     // ina2.prime_i2c();
     // std::cerr << "ina2: V = " << ina2.readBusVoltage()/1000 << ", I = " << ina2.readCurrent()/1000 << "\n";
   }
