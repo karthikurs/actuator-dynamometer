@@ -78,3 +78,9 @@ Motor calibration is necessary for the moteus drivers to determine parameters ne
 5. If desired, you can manually change the `v_per_hz` parameter in these log files to set a different torque constant based on a priori knowledge. `kt = 0.78*v_per_hz/pi`.
 
 To restore a calibration log file, run `python3 -m moteus.moteus_tool --target <ID> --restore-cal <cal_file>`
+
+### Sample Python script:
+
+https://github.com/mjbots/moteus/blob/main/lib/python/examples/pi3hat_multiservo.py
+
+You can also use the functions in `moteus_wrapper.py`, using the controller objects returned by the wrapper functions rather than the ones constructed in the sample script.
