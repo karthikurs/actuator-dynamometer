@@ -74,7 +74,7 @@ Motor calibration is necessary for the moteus drivers to determine parameters ne
 1. Ensure motors are free to rotate (frictional load ok)
 2. Power up main power
 3. Run: `python3 -m moteus.moteus_tool --target <ID> --calibrate` where `<ID>` should be replaced with the moteus driver IDs. Use 1 and 2.
-4. The command above should generate a .log file in the cwd. Rename the file to `ri50_cal_<ID>.log` and move it to moteus-setup/moteus-cal/
+4. The command above should generate a .log file in the cwd. Rename the file to `ri50_cal_<ID>.log` and move it to `moteus-setup/moteus-cal/`
 5. If desired, you can manually change the `v_per_hz` parameter in these log files to set a different torque constant based on a priori knowledge. `kt = 0.78*v_per_hz/pi`.
 
-To restore a calibration log file, run `python3 -m moteus.moteus_tool --target <ID> --restore-cal <cal_file>"
+To restore a calibration log file, run `python3 -m moteus.moteus_tool --target <ID> --restore-cal <cal_file>`
