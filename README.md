@@ -54,12 +54,12 @@ Moteus drivers communicate over CAN-FD, which addresses devices via IDs. By defa
 
 1. Connect only the moteus driver of interest to the CAN bus.
 2. Power up the driver
-3. Run `python3 -m moteus_gui.tview --devices=1 --target=1` to open the tview GUI
+3. Run `sudo python3 -m moteus_gui.tview --devices=1 --target=1` to open the tview GUI
 4. Click on the config tab in the upper left
 5. Expand the ID folder
 6. Double click the value next to ID
 7. Type in your desired ID. This will immediately change the ID, so this tview window will no longer be valid. Close the window.
-8. Run `python3 -m moteus_gui.tview --devices=1 --target=<ID>` where `<ID>` is the new ID you set.
+8. Run `sudo python3 -m moteus_gui.tview --devices=1 --target=<ID>` where `<ID>` is the new ID you set.
 9. Run `conf write` in the tview terminal to make the ID change persistent.
 
 ### Running moteus GUI (tview) with multiple drives connected
@@ -73,7 +73,7 @@ Refer to the moteus documentation on the tview command line commands available: 
 Motor calibration is necessary for the moteus drivers to determine parameters necessary for motor control. In order to run calibration:
 1. Ensure motors are free to rotate (frictional load ok)
 2. Power up main power
-3. Run: `python3 -m moteus.moteus_tool --target <ID> --calibrate` where `<ID>` should be replaced with the moteus driver IDs. Use 1 and 2.
+3. Run: `sudo python3 -m moteus.moteus_tool --target <ID> --calibrate` where `<ID>` should be replaced with the moteus driver IDs. Use 1 and 2.
 4. The command above should generate a .log file in the cwd. Rename the file to `ri50_cal_<ID>.log` and move it to `moteus-setup/moteus-cal/`
 5. If desired, you can manually change the `v_per_hz` parameter in these log files to set a different torque constant based on a priori knowledge. `kt = 0.78*v_per_hz/pi`.
 
