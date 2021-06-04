@@ -84,6 +84,8 @@ class Dynamometer {
     }
     actuator_a_id = dynset_.actuator_1_id;
     actuator_b_id = dynset_.actuator_2_id;
+
+    t0 = std::chrono::steady_clock::now();
   }
 
   /// This is called before any control begins, and must return the
@@ -152,14 +154,17 @@ class Dynamometer {
       auto& actuator_b_out = output->at(actuator_b_idx);  // We constructed this, so we know the order.
       auto& actuator_a_out = output->at(actuator_a_idx);
 
+      auto time_span = std::chrono::steady_clock::now() - t0;
+      double nseconds = double(time_span.count()) * std::chrono::steady_clock::period::num / 
+            std::chrono::steady_clock::period::den;
       actuator_a_out.mode = moteus::Mode::kPosition;
-      actuator_a_out.position.position = 0;
-      actuator_a_out.position.velocity = 0;
+      actuator_a_out.position.position = std::sin(nseconds);
+      actuator_a_out.position.velocity = nan("");
       actuator_a_out.position.feedforward_torque = 0;
 
       actuator_b_out.mode = moteus::Mode::kPosition;
-      actuator_b_out.position.position = 0;
-      actuator_b_out.position.velocity = 0;
+      actuator_b_out.position.position = std::sin(nseconds);
+      actuator_b_out.position.velocity = nan("");
       actuator_b_out.position.feedforward_torque = 0;
     }
   }
@@ -175,14 +180,16 @@ class Dynamometer {
 
   uint8_t actuator_a_id = 1;
   uint8_t actuator_b_id = 2;
+
+  std::chrono::steady_clock::time_point t0;
 };
 
 template <typename Controller>
 void Run(const DynamometerSettings& dynset, Controller* controller) {
-  if (dynset.help) {
-    DisplayUsage();
-    return;
-  }
+  // if (dynset.help) {
+  //   DisplayUsage();
+  //   return;
+  // }
 
   // * SETUP *
 

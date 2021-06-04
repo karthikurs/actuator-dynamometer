@@ -20,22 +20,27 @@ enum TestMode : uint8_t {
 
 class DynamometerSettings {
   public:
-  DynamometerSettings(cxxopts::Options dyn_opts) : dyn_opts_(dyn_opts) {}
+  DynamometerSettings(cxxopts::ParseResult dyn_opts) : dyn_opts_(dyn_opts) {
+    
+  }
+
+  float period_s;
+  float gear1;
+  float gear2;
 
   uint8_t actuator_1_id;
   uint8_t actuator_1_bus;
   uint8_t actuator_2_id;
   uint8_t actuator_2_bus;
-  float frequency;
 
-  float gear1;
-  float gear2;
+  uint8_t main_cpu;
+  uint8_t can_cpu;
 
   TestMode testmode;
   TorqueSensor tqsen;
 
   private:
-  cxxopts::Options dyn_opts_;
+  cxxopts::ParseResult dyn_opts_;
 };
 
 cxxopts::Options dyn_opts() {
