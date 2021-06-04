@@ -21,6 +21,10 @@ ads_test : ads_test.cpp $(OBJS)
 	@echo "    $@"
 	g++ $(CFLAGS) $< -o build/$@
 
+%.o : %.cc %.h
+	@echo "    $@"
+	g++ $(CFLAGS) $< -o build/$@
+
 # BUILD_DIR := build
 
 # all: ads_test
