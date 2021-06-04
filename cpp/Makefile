@@ -1,6 +1,7 @@
 # VPATH = src/adafruit/ src/main/ build/
-vpath %.h src
-vpath %.cpp src
+vpath %.h src src/mjbots/moteus src/mjbots/pi3hat
+vpath %.cpp src src/mjbots/moteus src/mjbots/pi3hat
+vpath %.cpp src src/mjbots/moteus src/mjbots/pi3hat
 vpath %.o build
 # VPATH = ./src/adafruit ./src/main ./build
 
@@ -8,16 +9,23 @@ CFLAGS := -ggdb -c -pthread -fpermissive
 
 SRC_DIR := ./src
 BUILD_DIR := ./build
-OBJS := Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o
+OBJS := ads_test.o Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o
 
 all: ads_test
 
-ads_test : ads_test.cpp $(OBJS)
+ads_test : $(OBJS)
+	@echo "$@"
+	g++ -ggdb $(foreach obj,$(OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) -o $@ -lbcm2835
+
+pi3hat_tool : pi3hat_tool.cc pi3hat.o 
 	@echo "$@"
 	g++ -ggdb $< $(foreach obj,$(OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) -o $@ -lbcm2835
 
-
 %.o : %.cpp %.h
+	@echo "    $@"
+	g++ $(CFLAGS) $< -o build/$@
+
+%.o : %.cpp
 	@echo "    $@"
 	g++ $(CFLAGS) $< -o build/$@
 
