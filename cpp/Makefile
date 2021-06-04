@@ -10,28 +10,35 @@ CFLAGS := -ggdb -c -pthread -fpermissive
 SRC_DIR := ./src
 BUILD_DIR := ./build
 OBJS := ads_test.o Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o
+PI3T_OBJS := pi3hat_tool.o pi3hat.o 
 
 all: ads_test
 
-ads_test : $(OBJS)
+ads_test : $(foreach obj,$(OBJS),$(addprefix $(BUILD_DIR)/,$(obj)))
 	@echo "$@"
-	g++ -ggdb $(foreach obj,$(OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) -o $@ -lbcm2835
+# g++ -ggdb $(foreach obj,$(OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) -o $@ -lbcm2835
+	g++ -ggdb $^ -o $@ -lbcm2835
 
-pi3hat_tool : pi3hat_tool.cc pi3hat.o 
+pi3hat_tool : $(foreach obj,$(PI3T_OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) 
 	@echo "$@"
-	g++ -ggdb $< $(foreach obj,$(OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) -o $@ -lbcm2835
+# g++ -ggdb $(foreach obj,$(PI3T_OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) -o $@
+	g++ -ggdb $^ -o $@
 
-%.o : %.cpp %.h
+$(BUILD_DIR)/%.o : %.cpp %.h
 	@echo "    $@"
-	g++ $(CFLAGS) $< -o build/$@
+	g++ $(CFLAGS) $< -o $@
 
-%.o : %.cpp
+$(BUILD_DIR)/%.o : %.cpp
 	@echo "    $@"
-	g++ $(CFLAGS) $< -o build/$@
+	g++ $(CFLAGS) $< -o $@
 
-%.o : %.cc %.h
+$(BUILD_DIR)/%.o : %.cc %.h
 	@echo "    $@"
-	g++ $(CFLAGS) $< -o build/$@
+	g++ $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/%.o : %.cc
+	@echo "    $@"
+	g++ $(CFLAGS) $< -o $@
 
 # BUILD_DIR := build
 
