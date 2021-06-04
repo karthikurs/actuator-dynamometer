@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import moteus
 import moteus.moteus_tool as mt
+import moteus_pi3hat
 
 import numpy as np
 import asyncio
@@ -32,8 +33,8 @@ async def init_controllers():
     stream1 = moteus.Stream(c1)
     stream2 = moteus.Stream(c2)
     
-    cal_file_1 = "moteus-setup/moteus-cal/ri50_cal_1.log"
-    cal_file_2 = "moteus-setup/moteus-cal/ri50_cal_2.log"
+    cal_file_1 = "moteus-setup/moteus-cal/ri50_cal_1_leg.log"
+    cal_file_2 = "moteus-setup/moteus-cal/ri50_cal_2_leg.log"
     
     print("loading moteus controller calibration from " + cal_file_1 + ", " +cal_file_2 + " ...")
     cmd1 = "python3 -m moteus.moteus_tool --target 1 --restore-cal " + cal_file_1
@@ -54,6 +55,7 @@ async def init_controllers():
     return c1, c2, kt_1, kt_2
 
 def parse_reply(reply, g):
+    # import ipdb; ipdb.set_trace()
     pos = reply.values[1]
     vel = reply.values[2]
     trq = reply.values[3]
