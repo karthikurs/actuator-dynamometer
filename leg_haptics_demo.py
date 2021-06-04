@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import moteus
 import moteus.moteus_tool as mt
+import moteus_pi3hat
 
 import numpy as np
 from numpy import sin, cos
@@ -26,8 +27,22 @@ async def main():
     print(kt_1)
     print(kt_2)
 
-    p1, v1, t1 = parse_reply(await c1.set_stop(query=True))
-    p2, v2, t2 = parse_reply(await c2.set_stop(query=True))
+    transport = moteus_pi3hat.Pi3HatRouter(
+        servo_bus_map = {
+            1:[1],
+            2:[2]
+        },
+    )
+
+    for _ in range(2):
+        replies = await transport.cycle(\
+                                    [c1.make_stop(query=True),\
+                                    c2.make_stop(query=True)])
+        # import ipdb; ipdb.set_trace()
+    reply1 = replies[0]
+    reply2 = replies[1]
+    p1, v1, t1 = parse_reply(reply1, 1)
+    p2, v2, t2 = parse_reply(reply2, 1)
 
     kin = Kinematics()
 
