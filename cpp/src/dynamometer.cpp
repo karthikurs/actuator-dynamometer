@@ -43,6 +43,8 @@
 #include "Adafruit_ADS1X15.h"
 #include "Adafruit_INA260.h"
 
+#include "dynamometer_args.h"
+
 using namespace mjbots;
 
 using MoteusInterface = moteus::Pi3HatMoteusInterface;
@@ -122,9 +124,9 @@ std::pair<double, double> MinMaxVoltage(
 }
 
 /// This holds the user-defined control logic.
-class SampleController {
+class Dynamometer {
  public:
-  SampleController(const Arguments& arguments) : arguments_(arguments) {
+  Dynamometer(const Arguments& arguments) : arguments_(arguments) {
     if (arguments_.primary_id == arguments_.secondary_id) {
       throw std::runtime_error("The servos must have unique IDs");
     }
@@ -220,43 +222,54 @@ void Run(const Arguments& args, Controller* controller) {
     return;
   }
 
+  // * SETUP *
+
+  // ** CONFIGURE CPU AND MOTEUS INFRASTRUCTURE **
   moteus::ConfigureRealtime(args.main_cpu);
   MoteusInterface::Options moteus_options;
   moteus_options.cpu = args.can_cpu;
   moteus_options.servo_bus_map = controller->servo_bus_map();
   MoteusInterface moteus_interface{moteus_options};
 
+  // ** CONTAINER FOR COMMANDS **
   std::vector<MoteusInterface::ServoCommand> commands;
   for (const auto& pair : moteus_options.servo_bus_map) {
     commands.push_back({});
     commands.back().id = pair.first;
   }
 
+  // ** CONTAINER FOR REPLIES **
   std::vector<MoteusInterface::ServoReply> replies{commands.size()};
   std::vector<MoteusInterface::ServoReply> saved_replies;
 
+  // ** INITIALIZE COMMANDS **
   controller->Initialize(&commands);
 
+  // ** PACKAGE COMMANDS AND REPLIES IN moteus_data **
   MoteusInterface::Data moteus_data;
   moteus_data.commands = { commands.data(), commands.size() };
   moteus_data.replies = { replies.data(), replies.size() };
 
   std::future<MoteusInterface::Output> can_result;
 
+  // ** TEST PERIOD **
   const auto period =
       std::chrono::microseconds(static_cast<int64_t>(args.period_s * 1e6));
   auto next_cycle = std::chrono::steady_clock::now() + period;
 
+  // ** TERMINAL STATUS UPDATE PERIOD **
   const auto status_period = std::chrono::milliseconds(100);
   auto next_status = next_cycle + status_period;
   uint64_t cycle_count = 0;
   double total_margin = 0.0;
   uint64_t margin_cycles = 0;
 
+  // * MAIN LOOP *
   // We will run at a fixed cycle time.
   while (true) {
     cycle_count++;
     margin_cycles++;
+    // Terminal status update
     {
       const auto now = std::chrono::steady_clock::now();
       if (now > next_status) {
@@ -296,7 +309,8 @@ void Run(const Arguments& args, Controller* controller) {
         std::cout << "\nSkipped " << skip_count << " cycles\n";
       }
     }
-    // Wait for the next control cycle to come up.
+    
+    // Sleep current thread until next control interval, per the period setting.
     {
       const auto pre_sleep = std::chrono::steady_clock::now();
       std::this_thread::sleep_until(next_cycle);
@@ -324,6 +338,7 @@ void Run(const Arguments& args, Controller* controller) {
 
     // Then we can immediately ask them to be used again.
     auto promise = std::make_shared<std::promise<MoteusInterface::Output>>();
+    // Cycle out commands to drivers
     moteus_interface.Cycle(
         moteus_data,
         [promise](const MoteusInterface::Output& output) {
@@ -337,13 +352,17 @@ void Run(const Arguments& args, Controller* controller) {
 }
 
 int main(int argc, char** argv) {
+  auto options = dyn_opts();
+  auto result = options.parse(argc, argv);
+  std::cout << result["comment"].as<std::string>() << std::endl;
+  return 0;
   Arguments args({argv + 1, argv + argc});
 
   // Lock memory for the whole process.
   LockMemory();
 
-  SampleController sample_controller{args};
-  Run(args, &sample_controller);
+  Dynamometer dynamometer{args};
+  Run(args, &dynamometer);
 
   return 0;
 }

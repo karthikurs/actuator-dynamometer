@@ -13,6 +13,7 @@ COMMON_OBJS := pi3hat.o Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o
 ADS_OBJS := ads_test.o $(COMMON_OBJS)
 PI3T_OBJS := pi3hat_tool.o $(COMMON_OBJS)
 DYNAMOMETER_OBJS := dynamometer.o $(COMMON_OBJS)
+M_CTRL_OBJS := moteus_control_example.o $(COMMON_OBJS)
 
 BINS := ads_test pi3hat_tool dynamometer
 
@@ -36,6 +37,10 @@ $(BIN_DIR)/dynamometer : $(foreach obj,$(DYNAMOMETER_OBJS),$(addprefix $(BUILD_D
 	@echo "$@"
 	g++ -ggdb $^ -o $@ -L$(SYS_OBJS) -I src/mjbots/moteus -lbcm_host -lbcm2835 -lpthread
 
+$(BIN_DIR)/moteus_control_example : $(foreach obj,$(M_CTRL_OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) 
+	@echo "$@"
+	g++ -ggdb $^ -o $@ -L$(SYS_OBJS) -I src/mjbots/moteus -lbcm_host -lbcm2835 -lpthread
+
 $(BUILD_DIR)/%.o : %.cpp %.h
 	@echo "    $@"
 	g++ $(CFLAGS) $< -o $@
@@ -52,9 +57,9 @@ $(BUILD_DIR)/%.o : %.cc
 	@echo "    $@"
 	g++ $(CFLAGS) $< -o $@
 
-# $(BUILD_DIR)/%.o : %.h
-# 	@echo "    $@"
-# 	g++ $(CFLAGS) $< -o $@ 
+$(BUILD_DIR)/%.o : %.h
+# @echo "    $@"
+# g++ $(CFLAGS) $< -o $@ 
 
 clean:
 	rm -f build/* bin/*
