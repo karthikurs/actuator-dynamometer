@@ -4,8 +4,38 @@
 
 #include "cxxopts/cxxopts.hpp"
 
-enum StandardTest : uint8_t {
-  
+// interpret command line options to settings class
+enum TorqueSensor : uint8_t {
+  kTRD605_18,
+  kTRS605_5
+};
+
+enum TestMode : uint8_t {
+  kTorqueConstant,
+  kGRP,
+  kDirectDamping,
+  kTorqueVelSweep,
+  kManual
+};
+
+class DynamometerSettings {
+  public:
+  DynamometerSettings(cxxopts::Options dyn_opts) : dyn_opts_(dyn_opts) {}
+
+  uint8_t actuator_1_id;
+  uint8_t actuator_1_bus;
+  uint8_t actuator_2_id;
+  uint8_t actuator_2_bus;
+  float frequency;
+
+  float gear1;
+  float gear2;
+
+  TestMode testmode;
+  TorqueSensor tqsen;
+
+  private:
+  cxxopts::Options dyn_opts_;
 };
 
 cxxopts::Options dyn_opts() {
