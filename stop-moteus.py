@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import moteus
 import moteus.moteus_tool as mt
-
+import moteus_pi3hat
 import asyncio
 from moteus_wrapper import *
 

@@ -6,6 +6,7 @@ import moteus
 import moteus.moteus_tool as mt
 import moteus_pi3hat
 
+
 import numpy as np
 import asyncio
 import sys
@@ -17,7 +18,21 @@ import time
 import math
 
 async def e_stop():
-    os.system("sudo ip link set can0 up type can   tq 25 prop-seg 13 phase-seg1 12 phase-seg2 14 sjw 5   dtq 25 dprop-seg 3 dphase-seg1 1 dphase-seg2 3 dsjw 3   restart-ms 1000 fd on")
+#Defines the transport and stops the error that prevents the transport from not being able to be found
+    c1, c2, kt_1, kt_2 = await init_controllers()
+    print(kt_1)
+    print(kt_2)
+    transport = moteus_pi3hat.Pi3HatRouter(
+        servo_bus_map = {
+            1:[1, 2]
+        },
+    )
+
+    for _ in range(2):
+        replies = await transport.cycle(\
+                                    [c1.make_stop(query=True),\
+                                    c2.make_stop(query=True)])
+    # os.system("sudo ip link set can0 up type can   tq 25 prop-seg 13 phase-seg1 12 phase-seg2 14 sjw 5   dtq 25 dprop-seg 3 dphase-seg1 1 dphase-seg2 3 dsjw 3   restart-ms 1000 fd on")
     c1 = moteus.Controller(id=1)
     c2 = moteus.Controller(id=2)
     await c1.set_stop()
@@ -37,8 +52,8 @@ async def init_controllers():
     cal_file_2 = "moteus-setup/moteus-cal/ri50_cal_2_leg.log"
     
     print("loading moteus controller calibration from " + cal_file_1 + ", " +cal_file_2 + " ...")
-    cmd1 = "python3 -m moteus.moteus_tool --target 1 --restore-cal " + cal_file_1
-    cmd2 = "python3 -m moteus.moteus_tool --target 2 --restore-cal " + cal_file_2
+    cmd1 = "python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '1=1,2' --restore-cal " + cal_file_1
+    cmd2 = "python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '1=1,2' --restore-cal " + cal_file_2
     print(cmd1)        
     os.system(cmd1)
     print(cmd2)
@@ -55,7 +70,6 @@ async def init_controllers():
     return c1, c2, kt_1, kt_2
 
 def parse_reply(reply, g):
-    # import ipdb; ipdb.set_trace()
     pos = reply.values[1]
     vel = reply.values[2]
     trq = reply.values[3]

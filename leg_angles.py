@@ -69,12 +69,55 @@ async def main():
             replies = await transport.cycle(\
                             [c1.make_stop(query=True),\
                             c2.make_stop(query=True)])
-            p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1/kt_1, d_A=0.0, query=True), g=6)
-            p2, v2, t2 = parse_reply(await c2.set_current(q_A=t2/kt_2, d_A=0.0, query=True), g=6)
 
-            
+
+            reply1 = replies[0]
+            reply2 = replies[1]
+            p1, v1, t1 = parse_reply(reply1, 6)
+            p2, v2, t2 = parse_reply(reply2, 6)
+
+
+            # p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1/kt_1, d_A=0.0, query=True), g=6)
+            # p2, v2, t2 = parse_reply(await c2.set_current(q_A=t2/kt_2, d_A=0.0, query=True), g=6)
             print('p1={},v1={},t1={}'.format(p1, v1, t1))
             print('p2={},v2={},t2={}'.format(p2, v2, t2))
+
+            p1_h=p1-0.16087623512950663
+            p2_h=p2-1.0025842766155904
+
+            print('p1_h={},v1={},t1={}'.format(p1_h, v1, t1))
+            print('p2_h={},v2={},t2={}'.format(p2_h, v2, t2))
+
+
+            #Zero out tests
+            #Home pose defaults
+            # p1=0.16087623512950663
+            # p2=1.0025842766155904
+
+            #IMPORTANT LEG NOTES
+            #Looking at leg head on (as if robot facing to the right) and the leg is one of the right legs of the robot
+            #Actuator 1: CCW negative CW Positive
+            #Actuator 2: CCW negative CW Positive
+
+            #Ranges of Motion in terms of Encoder angle readings (normalized to home position)
+
+            #ACTUATOR 1:
+            #Easily visualized from femur angle, but generally for safety with current wire config +- PI
+
+            #ACTUATOR 2
+            #p2_h=-0.8247064210870179,v2=0.02996056226339143,t2=0.0
+            #p2_h=0.5899434446743528,v2=0.02996056226339143,t2=0.0
+
+
+            # time.sleep(2)
+
+            # p1, v1, t1 = parse_reply(await c1.set_rezero(rezero=0.0, query=True), g=6)
+            # p2, v2, t2 = parse_reply(await c2.set_rezero(rezero=0.0, query=True), g=6)    
+            
+            # print('ZEROED OUT')
+            # print('p1={},v1={},t1={}'.format(p1, v1, t1))
+            # print('p2={},v2={},t2={}'.format(p2, v2, t2))
+
             [x,y] = kin.fk_vec(p1,p2)[-1]
             time.sleep(0.005)
         except (KeyboardInterrupt, SystemExit):
