@@ -197,26 +197,28 @@ class Dynamometer {
     // cmdb.kp_scale = 0;
     // cmdb.kd_scale = 0;
     cmdb.feedforward_torque = 0;
+    std::cout << "in generate_commands(), dynset_.testmode = " << dynset_.testmode << std::endl;
 
     switch (dynset_.testmode) {
       case TestMode::kTorqueConstant:
         break;
       case TestMode::kDirectDamping:
         break;
-      case TestMode::kGRP:
+      case TestMode::kGRP: {
         std::mt19937 gen(rd_());
         std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
         float rand_cmd = dist(gen);
         rand_cmd = lpf.filterIn(rand_cmd);
         cmda.feedforward_torque = rand_cmd;
         break;
-      case TestMode::kTorqueVelSweep:
-        std::cout << "here" << std::endl;
+        }
+      case TestMode::kTorqueVelSweep: {
         cmda.position = std::sin(t_prog_s_);
         cmda.velocity = nan("");
         cmdb.position = std::sin(t_prog_s_);
         cmdb.velocity = nan("");
         break;
+        }
       case TestMode::kManual:
         break;
       case TestMode::kNone:

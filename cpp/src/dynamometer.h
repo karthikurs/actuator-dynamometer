@@ -31,16 +31,25 @@ class DynamometerSettings {
     actuator_2_bus = dyn_opts_["actuator-2-bus"].as<uint8_t>();
 
     auto test_str = dyn_opts_["test-mode"].as<std::string>();
-    if (test_str == "KT") testmode = TestMode::kTorqueConstant;
-    else if (test_str == "GRP") testmode = TestMode::kGRP;
-    else if (test_str == "direct-damping") testmode = TestMode::kDirectDamping;
-    else if (test_str == "TV-sweep") testmode = TestMode::kTorqueVelSweep;
-    else if (test_str == "manual") testmode = TestMode::kManual;
-    else testmode = TestMode::kNone;
 
+    // std::cout << test_str << (test_str == std::string("TV-sweep")) << std::endl;
+    if (test_str == std::string("KT")) {
+      testmode = TestMode::kTorqueConstant; std::cout << "test mode " << test_str << " selected" << std::endl;
+    } else if (test_str == std::string("GRP")) {
+      testmode = TestMode::kGRP; std::cout << "test mode " << test_str << " selected" << std::endl;
+    } else if (test_str == std::string("direct-damping")) {
+      testmode = TestMode::kDirectDamping; std::cout << "test mode " << test_str << " selected" << std::endl;
+    } else if (test_str == std::string("TV-sweep")) {
+      testmode = TestMode::kTorqueVelSweep; std::cout << "test mode " << test_str << " selected" << std::endl;
+    } else if (test_str == std::string("manual")) {
+      testmode = TestMode::kManual; std::cout << "test mode " << test_str << " selected" << std::endl;
+    } else {
+      testmode = TestMode::kNone;  std::cout << "no test mode selected" << std::endl;
+    }
+    
     auto tqsen_str = dyn_opts_["torquesensor"].as<std::string>();
-    if (tqsen_str == "trd605-18") tqsen = TorqueSensor::kTRD605_18;
-    else if (tqsen_str == "trs605-5") tqsen = TorqueSensor::kTRS605_5;
+    if (tqsen_str == std::string("trd605-18")) tqsen = TorqueSensor::kTRD605_18;
+    else if (tqsen_str == std::string("trs605-5")) tqsen = TorqueSensor::kTRS605_5;
     else tqsen = TorqueSensor::kTRS605_5;
 
     main_cpu = dyn_opts_["main-cpu"].as<uint8_t>();
