@@ -226,28 +226,26 @@ class Dynamometer {
         std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
         float rand_cmd = dist(gen);
         std::cout << '\t' << rand_cmd;
-        // rotate input buffer one element to the right to put new input in
+        // rotate buffers one element to the right to put new data in
         std::rotate(fib_.rbegin(),
           fib_.rbegin()+1,
           fib_.rend());
-        // rand_cmd = lpf.filterIn(rand_cmd);
+        std::rotate(fob_.rbegin(),
+          fob_.rbegin()+1,
+          fob_.rend());
         fib_[0] = rand_cmd;
+        fob_[0] = 0; // this term should cancel below 
         rand_cmd = 0;
-        // don't rotate output buffer, because you should be using older outputs
-        for (size_t ii = 0; ii < lpf_order_; ++ii) {
+        for (size_t ii = 0; ii < lpf_order_+1; ++ii) {
           rand_cmd += fib_[ii]*lpf_ccof_[ii]*lpf_sf_ - fob_[ii]*lpf_dcof_[ii];
           std::cout << '(' << fib_[ii] << ", " << fob_[ii] << ")\n"; 
         }
         std::cout << std::endl;
-        // rotate output buffer now to put new output in
-        std::rotate(fob_.rbegin(),
-          fob_.rbegin()+1,
-          fob_.rend());
         fob_[0] = rand_cmd;
         // rand_cmd = 0;
-        rand_cmd = (rand_cmd > 1.5) ? 1.5 : rand_cmd;
-        rand_cmd = (rand_cmd < -1.5) ? -1.5 : rand_cmd;
         std::cout << '\t' << rand_cmd << std::endl;
+        rand_cmd = (rand_cmd > grp_max_ampl) ? grp_max_ampl : rand_cmd;
+        rand_cmd = (rand_cmd < -grp_max_ampl) ? -grp_max_ampl : rand_cmd;
         cmda.kp_scale = 0;
         cmda.kd_scale = 0;
         cmda.feedforward_torque = rand_cmd;
@@ -449,7 +447,7 @@ int main(int argc, char** argv) {
   LockMemory();
 
   Dynamometer dynamometer{dynset};
-  return 0;
+  // return 0;
   Run(dynset, &dynamometer);
 
   return 0;
