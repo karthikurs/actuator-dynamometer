@@ -1,7 +1,7 @@
 # VPATH = src/adafruit/ src/main/ build/
-vpath %.h src src/mjbots/moteus src/mjbots/pi3hat
-vpath %.cpp src src/mjbots/moteus src/mjbots/pi3hat
-vpath %.cc src src/mjbots/moteus src/mjbots/pi3hat
+vpath %.h src src/mjbots/moteus src/mjbots/pi3hat src/libFilter
+vpath %.cpp src src/mjbots/moteus src/mjbots/pi3hat src/libFilter
+vpath %.cc src src/mjbots/moteus src/mjbots/pi3hat src/libFilter
 vpath %.o build
 # VPATH = ./src/adafruit ./src/main ./build
 
@@ -9,7 +9,7 @@ vpath %.o build
 SRC_DIR := ./src
 BUILD_DIR := ./build
 BIN_DIR := ./bin
-COMMON_OBJS := pi3hat.o Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o
+COMMON_OBJS := pi3hat.o Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o filters.o
 ADS_OBJS := ads_test.o $(COMMON_OBJS)
 PI3T_OBJS := pi3hat_tool.o $(COMMON_OBJS)
 DYNAMOMETER_OBJS := dynamometer.o $(COMMON_OBJS)
@@ -61,7 +61,9 @@ $(BUILD_DIR)/%.o : %.h
 # @echo "    $@"
 # g++ $(CFLAGS) $< -o $@ 
 
-dynamometer.cpp : dynamometer_args.h
+# $(BUILD_DIR)/filters.o : filters.cpp filters.h filters_defs.h
+# 	@echo "    $@"
+# 	g++ $(CFLAGS) $< -o $@ 
 
 clean:
 	rm -f build/* bin/*

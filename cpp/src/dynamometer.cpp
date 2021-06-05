@@ -36,6 +36,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <random>
 
 #include "mjbots/moteus/moteus_protocol.h"
 #include "mjbots/moteus/pi3hat_moteus_interface.h"
@@ -43,7 +44,9 @@
 #include "Adafruit_ADS1X15.h"
 #include "Adafruit_INA260.h"
 
-#include "dynamometer_args.h"
+#include "dynamometer.h"
+
+#include "libFilter/filters.h"
 
 using namespace mjbots;
 
@@ -78,14 +81,18 @@ std::pair<double, double> MinMaxVoltage(
 /// This holds the user-defined control logic.
 class Dynamometer {
  public:
-  Dynamometer(const DynamometerSettings& dynset) : dynset_(dynset) {
+  Dynamometer(const DynamometerSettings& dynset) : dynset_(dynset), lpf(40, dynset.period_s, IIR::ORDER::OD3) {
     if (dynset_.actuator_1_id == dynset_.actuator_2_id) {
       throw std::runtime_error("The servos must have unique IDs");
     }
     actuator_a_id = dynset_.actuator_1_id;
     actuator_b_id = dynset_.actuator_2_id;
 
-    t0 = std::chrono::steady_clock::now();
+    // lpf.setSamplingTime(dynset_.period_s);
+    // lpf.setOrder(IIR::ORDER::OD3);
+    // lpf.setCutoffFreqHZ(40);
+
+    // t0 = std::chrono::steady_clock::now();
   }
 
   /// This is called before any control begins, and must return the
@@ -135,6 +142,9 @@ class Dynamometer {
   void Run(const std::vector<MoteusInterface::ServoReply>& status,
            std::vector<MoteusInterface::ServoCommand>* output) {
     cycle_count_++;
+    auto time_span = std::chrono::steady_clock::now() - t0_;
+    t_prog_s_ = double(time_span.count()) * std::chrono::steady_clock::period::num / 
+          std::chrono::steady_clock::period::den;
 
     // This is where your control loop would go.
 
@@ -154,18 +164,63 @@ class Dynamometer {
       auto& actuator_b_out = output->at(actuator_b_idx);  // We constructed this, so we know the order.
       auto& actuator_a_out = output->at(actuator_a_idx);
 
-      auto time_span = std::chrono::steady_clock::now() - t0;
-      double nseconds = double(time_span.count()) * std::chrono::steady_clock::period::num / 
-            std::chrono::steady_clock::period::den;
       actuator_a_out.mode = moteus::Mode::kPosition;
-      actuator_a_out.position.position = std::sin(nseconds);
-      actuator_a_out.position.velocity = nan("");
-      actuator_a_out.position.feedforward_torque = 0;
+      // actuator_a_out.position.position = std::sin(t_prog_s_);
+      // actuator_a_out.position.velocity = nan("");
+      // actuator_a_out.position.feedforward_torque = 0;
 
       actuator_b_out.mode = moteus::Mode::kPosition;
-      actuator_b_out.position.position = std::sin(nseconds);
-      actuator_b_out.position.velocity = nan("");
-      actuator_b_out.position.feedforward_torque = 0;
+      // actuator_b_out.position.position = std::sin(t_prog_s_);
+      // actuator_b_out.position.velocity = nan("");
+      // actuator_b_out.position.feedforward_torque = 0;
+      generate_commands(t_prog_s_, actuator_a_out.position, actuator_b_out.position);
+    }
+  }
+
+  void set_t0(std::chrono::steady_clock::time_point t0) {
+    t0_ = t0;
+  }
+
+  void swap_actuators() {
+    std::swap(actuator_a_idx, actuator_b_idx);
+    std::swap(actuator_a_id, actuator_b_id);
+  }
+
+  void generate_commands(double time, mjbots::moteus::PositionCommand &cmda, mjbots::moteus::PositionCommand &cmdb) {
+    cmda.position = 0;
+    cmda.velocity = 0;
+    // cmda.kp_scale = 0;
+    // cmda.kd_scale = 0;
+    cmda.feedforward_torque = 0;
+    cmdb.position = 0;
+    cmdb.velocity = 0;
+    // cmdb.kp_scale = 0;
+    // cmdb.kd_scale = 0;
+    cmdb.feedforward_torque = 0;
+
+    switch (dynset_.testmode) {
+      case TestMode::kTorqueConstant:
+        break;
+      case TestMode::kDirectDamping:
+        break;
+      case TestMode::kGRP:
+        std::mt19937 gen(rd_());
+        std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
+        float rand_cmd = dist(gen);
+        rand_cmd = lpf.filterIn(rand_cmd);
+        cmda.feedforward_torque = rand_cmd;
+        break;
+      case TestMode::kTorqueVelSweep:
+        std::cout << "here" << std::endl;
+        cmda.position = std::sin(t_prog_s_);
+        cmda.velocity = nan("");
+        cmdb.position = std::sin(t_prog_s_);
+        cmdb.velocity = nan("");
+        break;
+      case TestMode::kManual:
+        break;
+      case TestMode::kNone:
+        break;
     }
   }
 
@@ -181,7 +236,14 @@ class Dynamometer {
   uint8_t actuator_a_id = 1;
   uint8_t actuator_b_id = 2;
 
-  std::chrono::steady_clock::time_point t0;
+  float grp_max_ampl = 0.5; //amps
+
+  std::chrono::steady_clock::time_point t0_;
+  double t_prog_s_;
+
+  Filter lpf;
+
+  std::random_device rd_;
 };
 
 template <typename Controller>
@@ -232,6 +294,8 @@ void Run(const DynamometerSettings& dynset, Controller* controller) {
   uint64_t cycle_count = 0;
   double total_margin = 0.0;
   uint64_t margin_cycles = 0;
+
+  controller->set_t0(std::chrono::steady_clock::now());
 
   // * MAIN LOOP *
   // We will run at a fixed cycle time.
