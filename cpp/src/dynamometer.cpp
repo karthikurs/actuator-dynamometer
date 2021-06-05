@@ -28,6 +28,7 @@
 #include <chrono>
 #include <iomanip>
 #include <iostream>
+#include <fstream>
 #include <future>
 #include <limits>
 #include <map>
@@ -37,6 +38,7 @@
 #include <thread>
 #include <vector>
 #include <random>
+#include <algorithm>
 
 #include "mjbots/moteus/moteus_protocol.h"
 #include "mjbots/moteus/pi3hat_moteus_interface.h"
@@ -47,10 +49,13 @@
 #include "dynamometer.h"
 
 #include "libFilter/filters.h"
+#include "iir/iir.h"
+#include "nlohmann/json.hpp"
 
 using namespace mjbots;
 
 using MoteusInterface = moteus::Pi3HatMoteusInterface;
+using json = nlohmann::json;
 
 namespace {
 
@@ -81,18 +86,34 @@ std::pair<double, double> MinMaxVoltage(
 /// This holds the user-defined control logic.
 class Dynamometer {
  public:
-  Dynamometer(const DynamometerSettings& dynset) : dynset_(dynset), lpf(40, dynset.period_s, IIR::ORDER::OD3) {
+  Dynamometer(const DynamometerSettings& dynset) :
+    dynset_(dynset) {
+    // lpf(40, dynset.period_s, IIR::ORDER::OD3, IIR::TYPE::LOWPASS) {
+    
+    // lpf.dumpParams();
     if (dynset_.actuator_1_id == dynset_.actuator_2_id) {
       throw std::runtime_error("The servos must have unique IDs");
     }
     actuator_a_id = dynset_.actuator_1_id;
     actuator_b_id = dynset_.actuator_2_id;
+    
+    std::ifstream grp_if("configs/grp.json");
+    json grp_j; grp_if >> grp_j;
+    lpf_order_ = grp_j["butterworth_order"];
+    lpf_fc_ = grp_j["cutoff_frequency_Hz"];
+    grp_max_ampl = grp_j["torque_amplitude_Nm"];
 
-    // lpf.setSamplingTime(dynset_.period_s);
-    // lpf.setOrder(IIR::ORDER::OD3);
-    // lpf.setCutoffFreqHZ(40);
-
-    // t0 = std::chrono::steady_clock::now();
+    fib_.resize(lpf_order_+1);
+    fob_.resize(lpf_order_+1);
+    lpf_dcof_ = dcof_bwlp(lpf_order_, 2*lpf_fc_*dynset_.period_s);
+    lpf_ccof_ = ccof_bwlp(lpf_order_);
+    lpf_sf_ = sf_bwlp(lpf_order_,  2*lpf_fc_*dynset_.period_s);
+    for (size_t ii = 0; ii<lpf_order_+1; ++ii) {
+      fib_[ii] = 0;
+      fob_[ii] = 0;
+      std::cout << lpf_dcof_[ii] << '\t' << lpf_ccof_[ii] << '\n';
+    }
+    std::cout << lpf_sf_ << std::endl;
   }
 
   /// This is called before any control begins, and must return the
@@ -189,15 +210,11 @@ class Dynamometer {
   void generate_commands(double time, mjbots::moteus::PositionCommand &cmda, mjbots::moteus::PositionCommand &cmdb) {
     cmda.position = 0;
     cmda.velocity = 0;
-    // cmda.kp_scale = 0;
-    // cmda.kd_scale = 0;
     cmda.feedforward_torque = 0;
     cmdb.position = 0;
     cmdb.velocity = 0;
-    // cmdb.kp_scale = 0;
-    // cmdb.kd_scale = 0;
     cmdb.feedforward_torque = 0;
-    std::cout << "in generate_commands(), dynset_.testmode = " << dynset_.testmode << std::endl;
+    // std::cout << "in generate_commands(), dynset_.testmode = " << dynset_.testmode << std::endl;
 
     switch (dynset_.testmode) {
       case TestMode::kTorqueConstant:
@@ -208,8 +225,34 @@ class Dynamometer {
         std::mt19937 gen(rd_());
         std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
         float rand_cmd = dist(gen);
-        rand_cmd = lpf.filterIn(rand_cmd);
+        std::cout << '\t' << rand_cmd;
+        // rotate input buffer one element to the right to put new input in
+        std::rotate(fib_.rbegin(),
+          fib_.rbegin()+1,
+          fib_.rend());
+        // rand_cmd = lpf.filterIn(rand_cmd);
+        fib_[0] = rand_cmd;
+        rand_cmd = 0;
+        // don't rotate output buffer, because you should be using older outputs
+        for (size_t ii = 0; ii < lpf_order_; ++ii) {
+          rand_cmd += fib_[ii]*lpf_ccof_[ii]*lpf_sf_ - fob_[ii]*lpf_dcof_[ii];
+          std::cout << '(' << fib_[ii] << ", " << fob_[ii] << ")\n"; 
+        }
+        std::cout << std::endl;
+        // rotate output buffer now to put new output in
+        std::rotate(fob_.rbegin(),
+          fob_.rbegin()+1,
+          fob_.rend());
+        fob_[0] = rand_cmd;
+        // rand_cmd = 0;
+        rand_cmd = (rand_cmd > 1.5) ? 1.5 : rand_cmd;
+        rand_cmd = (rand_cmd < -1.5) ? -1.5 : rand_cmd;
+        std::cout << '\t' << rand_cmd << std::endl;
+        cmda.kp_scale = 0;
+        cmda.kd_scale = 0;
         cmda.feedforward_torque = rand_cmd;
+        cmdb.kp_scale = 0;
+        cmdb.kd_scale = 0;
         break;
         }
       case TestMode::kTorqueVelSweep: {
@@ -238,14 +281,23 @@ class Dynamometer {
   uint8_t actuator_a_id = 1;
   uint8_t actuator_b_id = 2;
 
-  float grp_max_ampl = 0.5; //amps
+  float grp_max_ampl = 1.0; //amps
 
   std::chrono::steady_clock::time_point t0_;
   double t_prog_s_;
 
-  Filter lpf;
+  // Filter lpf;
+
+  double *lpf_dcof_;
+  int *lpf_ccof_;
+  double lpf_sf_;
+  uint8_t lpf_order_ = 3;
+
+  float lpf_fc_ = 40;
 
   std::random_device rd_;
+  std::vector<float> fib_;
+  std::vector<float> fob_;
 };
 
 template <typename Controller>
@@ -392,12 +444,12 @@ int main(int argc, char** argv) {
   std::cout << opts["comment"].as<std::string>() << std::endl;
 
   DynamometerSettings dynset(opts);
-  // return 0;
 
   // Lock memory for the whole process.
   LockMemory();
 
   Dynamometer dynamometer{dynset};
+  return 0;
   Run(dynset, &dynamometer);
 
   return 0;

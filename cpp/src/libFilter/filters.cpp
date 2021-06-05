@@ -18,6 +18,7 @@
 
 #include "filters.h"
 #include <cmath>
+#include <iostream>
 
 using namespace IIR;
 
@@ -75,17 +76,16 @@ void Filter::flush() {
 
 void Filter::dumpParams() {
   uint8_t p = 6;
-  // Serial.println("Filter parameters:");
-  // Serial.print("ts\t= "); Serial.println(ts, p);
-  // Serial.print("hz\t= "); Serial.println(hz, p);
-  // Serial.print("od\t= "); Serial.println((uint8_t)od);
-
-  // Serial.print("k0\t= ");  Serial.println(k0, p);
-  // Serial.print("k1\t= ");  Serial.println(k1, p);
-  // Serial.print("k2\t= ");  Serial.println(k2, p);
-  // Serial.print("k3\t= ");  Serial.println(k3, p);
-  // Serial.print("k4\t= ");  Serial.println(k4, p);
-  // Serial.print("k5\t= ");  Serial.println(k5, p);
+  std::cout << ("Filter parameters:") << std::endl;
+  std::cout <<("ts\t= ") << ts << '\n';
+  std::cout <<("hz\t= ") << hz << '\n';
+  std::cout <<("od\t= ") << static_cast<int>(od) << '\n';
+  std::cout <<("k0\t= ") << k0 << '\n';
+  std::cout <<("k1\t= ") << k1 << '\n';
+  std::cout <<("k2\t= ") << k2 << '\n';
+  std::cout <<("k3\t= ") << k3 << '\n';
+  std::cout <<("k4\t= ") << k4 << '\n';
+  std::cout <<("k5\t= ") << k5 << std::endl;
 }
 
 // PRIVATE METHODS  * * * * * * * * * * * * * * * * * * * *
@@ -228,7 +228,7 @@ inline void  Filter::initHighPass() {
 }
 
 float_t Filter::ap(float_t p) {
-  f_err  = f_err  | (abs(p) <= EPSILON );
-  f_warn = f_warn | (abs(p) <= WEPSILON);
+  f_err  = f_err  | (fabs(p) <= EPSILON );
+  f_warn = f_warn | (fabs(p) <= WEPSILON);
   return (f_err) ? 0.0 : p;
 }

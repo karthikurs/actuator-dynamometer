@@ -1,15 +1,18 @@
 # VPATH = src/adafruit/ src/main/ build/
-vpath %.h src src/mjbots/moteus src/mjbots/pi3hat src/libFilter
-vpath %.cpp src src/mjbots/moteus src/mjbots/pi3hat src/libFilter
-vpath %.cc src src/mjbots/moteus src/mjbots/pi3hat src/libFilter
-vpath %.o build
+VPATH = src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir src/nlohmann
+# vpath %.h src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir src/nlohmann
+# vpath %.hpp src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir src/nlohmann
+# vpath %.cpp src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir
+# vpath %.cc src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir
+# vpath %.c src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir
+# vpath %.o build
 # VPATH = ./src/adafruit ./src/main ./build
 
 
 SRC_DIR := ./src
 BUILD_DIR := ./build
 BIN_DIR := ./bin
-COMMON_OBJS := pi3hat.o Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o filters.o
+COMMON_OBJS := pi3hat.o Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o filters.o iir.o
 ADS_OBJS := ads_test.o $(COMMON_OBJS)
 PI3T_OBJS := pi3hat_tool.o $(COMMON_OBJS)
 DYNAMOMETER_OBJS := dynamometer.o $(COMMON_OBJS)
@@ -21,7 +24,7 @@ SYS_LIB_DIRS := /opt/vc/
 SYS_INCLUDES := $(foreach lib,$(SYS_LIB_DIRS),$(addsuffix include,$(lib)))
 SYS_OBJS := $(foreach lib,$(SYS_LIB_DIRS),$(addsuffix lib,$(lib)))
 
-CFLAGS := -ggdb -c -pthread -fpermissive -I$(SYS_INCLUDES) -I src
+CFLAGS := -ggdb -c -pthread -fpermissive -Wno-psabi -I$(SYS_INCLUDES) -I src
 
 all: $(BIN_DIR)/ads_test $(BIN_DIR)/pi3hat_tool
 
@@ -35,7 +38,7 @@ $(BIN_DIR)/pi3hat_tool : $(foreach obj,$(PI3T_OBJS),$(addprefix $(BUILD_DIR)/,$(
 
 $(BIN_DIR)/dynamometer : $(foreach obj,$(DYNAMOMETER_OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) 
 	@echo "$@"
-	g++ -ggdb $^ -o $@ -L$(SYS_OBJS) -I src/mjbots/moteus -lbcm_host -lbcm2835 -lpthread
+	g++ -ggdb $^ -o $@ -L$(SYS_OBJS) -I src/mjbots/moteus -I src/iir -lbcm_host -lbcm2835 -lpthread
 
 $(BIN_DIR)/moteus_control_example : $(foreach obj,$(M_CTRL_OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) 
 	@echo "$@"
@@ -56,6 +59,14 @@ $(BUILD_DIR)/%.o : %.cc %.h
 $(BUILD_DIR)/%.o : %.cc
 	@echo "    $@"
 	g++ $(CFLAGS) $< -o $@
+
+$(BUILD_DIR)/%.o : %.c %.h
+	@echo "    $@"
+	g++ $(CFLAGS) $< -o $@
+
+# $(BUILD_DIR)/iir.o : iir.c iir.h
+# 	@echo "    $@"
+# 	g++ $(CFLAGS) $< -o $@
 
 $(BUILD_DIR)/%.o : %.h
 # @echo "    $@"
