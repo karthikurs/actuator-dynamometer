@@ -225,7 +225,7 @@ class Dynamometer {
         std::mt19937 gen(rd_());
         std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
         float rand_cmd = dist(gen);
-        std::cout << '\t' << rand_cmd;
+        // std::cout << '\t' << rand_cmd;
         // rotate buffers one element to the right to put new data in
         std::rotate(fib_.rbegin(),
           fib_.rbegin()+1,
@@ -238,12 +238,12 @@ class Dynamometer {
         rand_cmd = 0;
         for (size_t ii = 0; ii < lpf_order_+1; ++ii) {
           rand_cmd += fib_[ii]*lpf_ccof_[ii]*lpf_sf_ - fob_[ii]*lpf_dcof_[ii];
-          std::cout << '(' << fib_[ii] << ", " << fob_[ii] << ")\n"; 
+          // std::cout << '(' << fib_[ii] << ", " << fob_[ii] << ")\n"; 
         }
-        std::cout << std::endl;
+        // std::cout << std::endl;
         fob_[0] = rand_cmd;
         // rand_cmd = 0;
-        std::cout << '\t' << rand_cmd << std::endl;
+        // std::cout << '\t' << rand_cmd << std::endl;
         rand_cmd = (rand_cmd > grp_max_ampl) ? grp_max_ampl : rand_cmd;
         rand_cmd = (rand_cmd < -grp_max_ampl) ? -grp_max_ampl : rand_cmd;
         cmda.kp_scale = 0;
