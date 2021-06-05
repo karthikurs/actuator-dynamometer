@@ -326,7 +326,7 @@ int main(int argc, char** argv) {
   std::cout << opts["comment"].as<std::string>() << std::endl;
 
   DynamometerSettings dynset(opts);
-  return 0;
+  // return 0;
 
   // Lock memory for the whole process.
   LockMemory();

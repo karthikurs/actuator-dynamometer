@@ -61,5 +61,7 @@ $(BUILD_DIR)/%.o : %.h
 # @echo "    $@"
 # g++ $(CFLAGS) $< -o $@ 
 
+dynamometer.cpp : dynamometer_args.h
+
 clean:
 	rm -f build/* bin/*
