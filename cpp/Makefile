@@ -24,7 +24,7 @@ SYS_LIB_DIRS := /opt/vc/
 SYS_INCLUDES := $(foreach lib,$(SYS_LIB_DIRS),$(addsuffix include,$(lib)))
 SYS_OBJS := $(foreach lib,$(SYS_LIB_DIRS),$(addsuffix lib,$(lib)))
 
-CFLAGS := -std=c++20  -ggdb -c -pthread -fpermissive -Wno-psabi -I$(SYS_INCLUDES) -I src
+CFLAGS := -std=c++11  -ggdb -c -pthread -fpermissive -Wno-psabi -I$(SYS_INCLUDES) -I src
 
 all: $(BIN_DIR)/ads_test $(BIN_DIR)/pi3hat_tool
 

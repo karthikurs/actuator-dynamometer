@@ -40,6 +40,8 @@
 #include <random>
 #include <algorithm>
 
+#include <cstdio>
+
 #include "mjbots/moteus/moteus_protocol.h"
 #include "mjbots/moteus/pi3hat_moteus_interface.h"
 
@@ -257,6 +259,8 @@ class Dynamometer {
       case TestMode::kNone:
         break;
     }
+    // sample sensors and store data
+    sample_sensors();
   }
 
   void sample_sensors() {
@@ -277,8 +281,21 @@ class Dynamometer {
     sd_.ina2_power_W = sd_.ina2_current_A * sd_.ina2_voltage_V;
   }
 
+  std::string stringify_sensor_data() {
+    std::ostringstream result;
+    sprintf(cstr_buffer, "%f, %f, %f, ", sd_.torque_Nm, sd_.temp1_C, sd_.temp2_C);
+    result << cstr_buffer;
+    sprintf(cstr_buffer, "%f, %f, %f, ", sd_.ina1_voltage_V, sd_.ina1_current_A, sd_.ina1_power_W);
+    result << cstr_buffer;
+    sprintf(cstr_buffer, "%f, %f, %f", sd_.ina2_voltage_V, sd_.ina2_current_A, sd_.ina2_power_W);
+    result << cstr_buffer;
+    return result.str();
+  }
+
+  double get_program_time() {return t_prog_s_;}
+
  private:
-  
+  char cstr_buffer[128];
   const DynamometerSettings dynset_;
   Adafruit_ADS1015 ads_;
   Adafruit_INA260 ina1_;
@@ -447,6 +464,8 @@ void Run(const DynamometerSettings& dynset, Dynamometer* dynamometer) {
           promise->set_value(output);
         });
     can_result = promise->get_future();
+
+    std::cout << dynamometer->stringify_sensor_data() << std::endl;
   }
 }
 }
