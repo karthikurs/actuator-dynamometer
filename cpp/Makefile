@@ -12,11 +12,11 @@ VPATH = src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir src/nlohma
 SRC_DIR := ./src
 BUILD_DIR := ./build
 BIN_DIR := ./bin
-COMMON_OBJS := pi3hat.o Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o filters.o iir.o
+COMMON_OBJS := Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o filters.o iir.o
 ADS_OBJS := ads_test.o $(COMMON_OBJS)
-PI3T_OBJS := pi3hat_tool.o $(COMMON_OBJS)
-DYNAMOMETER_OBJS := dynamometer.o $(COMMON_OBJS)
-M_CTRL_OBJS := moteus_control_example.o $(COMMON_OBJS)
+PI3T_OBJS := pi3hat_tool.o pi3hat.o $(COMMON_OBJS)
+DYNAMOMETER_OBJS := dynamometer.o pi3hat.o $(COMMON_OBJS)
+M_CTRL_OBJS := moteus_control_example.o pi3hat.o $(COMMON_OBJS)
 
 BINS := ads_test pi3hat_tool dynamometer
 

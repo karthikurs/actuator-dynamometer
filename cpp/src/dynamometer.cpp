@@ -43,8 +43,8 @@
 #include "mjbots/moteus/moteus_protocol.h"
 #include "mjbots/moteus/pi3hat_moteus_interface.h"
 
-#include "Adafruit_ADS1X15.h"
-#include "Adafruit_INA260.h"
+#include "sensors/Adafruit_ADS1X15.h"
+#include "sensors/Adafruit_INA260.h"
 
 #include "dynamometer.h"
 
@@ -238,12 +238,9 @@ class Dynamometer {
         rand_cmd = 0;
         for (size_t ii = 0; ii < lpf_order_+1; ++ii) {
           rand_cmd += fib_[ii]*lpf_ccof_[ii]*lpf_sf_ - fob_[ii]*lpf_dcof_[ii];
-          // std::cout << '(' << fib_[ii] << ", " << fob_[ii] << ")\n"; 
         }
-        // std::cout << std::endl;
         fob_[0] = rand_cmd;
         // rand_cmd = 0;
-        // std::cout << '\t' << rand_cmd << std::endl;
         rand_cmd = (rand_cmd > grp_max_ampl) ? grp_max_ampl : rand_cmd;
         rand_cmd = (rand_cmd < -grp_max_ampl) ? -grp_max_ampl : rand_cmd;
         cmda.kp_scale = 0;
@@ -372,14 +369,14 @@ void Run(const DynamometerSettings& dynset, Controller* controller) {
           }
           return result.str();
         }();
-        std::cout << std::setprecision(6) << std::fixed
-                  << "Cycles " << cycle_count
-                  << "  margin: " << (total_margin / margin_cycles)
-                  << std::setprecision(1)
-                  << "  volts: " << volts.first << "/" << volts.second
-                  << "  modes: " << modes
-                  << "   \r";
-        std::cout.flush();
+        // std::cout << std::setprecision(6) << std::fixed
+        //           << "Cycles " << cycle_count
+        //           << "  margin: " << (total_margin / margin_cycles)
+        //           << std::setprecision(1)
+        //           << "  volts: " << volts.first << "/" << volts.second
+        //           << "  modes: " << modes
+        //           << "   \r";
+        // std::cout.flush();
         next_status += status_period;
         total_margin = 0;
         margin_cycles = 0;
@@ -408,6 +405,9 @@ void Run(const DynamometerSettings& dynset, Controller* controller) {
 
     controller->Run(saved_replies, &commands);
 
+    // std::cout << "position commands: " << std::setprecision(6) <<
+    //           commands[0].position.position
+    //           << ", " << commands[1].position.position << std::endl;
 
     if (can_result.valid()) {
       // Now we get the result of our last query and send off our new
@@ -419,6 +419,11 @@ void Run(const DynamometerSettings& dynset, Controller* controller) {
       saved_replies.resize(rx_count);
       std::copy(replies.begin(), replies.begin() + rx_count,
                 saved_replies.begin());
+      // std::cout << "position replies (BEFORE commands): ";
+      // for (size_t ii = 0; ii < rx_count; ++ii) {
+      //   std::cout << std::setprecision(6) << replies[ii].result.position << ", ";
+      // }
+      // std::cout << std::endl;
     }
 
     // Then we can immediately ask them to be used again.
@@ -445,6 +450,7 @@ int main(int argc, char** argv) {
 
   // Lock memory for the whole process.
   LockMemory();
+  ConfigureRealtime(dynset.main_cpu);
 
   Dynamometer dynamometer{dynset};
   // return 0;

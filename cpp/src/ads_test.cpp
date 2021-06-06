@@ -1,6 +1,6 @@
 #include <iostream>
-#include "Adafruit_ADS1X15.h"
-#include "Adafruit_INA260.h"
+#include "sensors/Adafruit_ADS1X15.h"
+#include "sensors/Adafruit_INA260.h"
 
 
 int main() {
