@@ -32,6 +32,21 @@ using namespace mjbots;
 using MoteusInterface = moteus::Pi3HatMoteusInterface;
 using json = nlohmann::json;
 
+char cstr_buffer[128];
+
+std::string stringify_moteus_reply(MoteusInterface::ServoReply& reply) {
+  uint8_t id = reply.id;
+  auto data = reply.result;
+  std::ostringstream result;
+  sprintf(cstr_buffer, "%d, %f, %f, ",
+    data.mode, data.position, data.velocity);
+  result << cstr_buffer;
+  sprintf(cstr_buffer, "%f, %f, %d",
+    data.torque, data.temperature, data.fault);
+  result << cstr_buffer;
+  return result.str();
+}
+
 void Run(Dynamometer* dynamometer) {
   
   // if (dynset.help) {
@@ -43,8 +58,6 @@ void Run(Dynamometer* dynamometer) {
   Dynamometer::DynamometerSettings& dynset = dynamometer->dynset_;
 
   // * SETUP *
-
-  char cstr_buffer[128];
 
   // ** CONFIGURE CPU AND MOTEUS INFRASTRUCTURE **
   moteus::ConfigureRealtime(dynset.main_cpu);
@@ -170,7 +183,15 @@ void Run(Dynamometer* dynamometer) {
         });
     can_result = promise->get_future();
 
-    std::cout << dynamometer->stringify_sensor_data() << std::endl;
+    if (cycle_count > 5 && saved_replies.size() >= 2) {
+      auto c1_str = stringify_moteus_reply(saved_replies.at(0));
+      auto c2_str = stringify_moteus_reply(saved_replies.at(1));
+      auto sensor_str = dynamometer->stringify_sensor_data();
+      std::cout << c1_str << ", " << c2_str << ", " << sensor_str << std::endl;
+    }
+    else {
+      std::cout << "missing moteus reply" << std::endl;
+    }
   }
 }
 

@@ -192,7 +192,7 @@ void Dynamometer::Run(const std::vector<MoteusInterface::ServoReply>& status,
     auto& actuator_a_out = output->at(actuator_a_idx);
 
     actuator_a_out.mode = moteus::Mode::kPosition;
-    actuator_b_out.mode = moteus::Mode::kPosition;
+    actuator_b_out.mode = (dynset_.testmode == TestMode::kGRP) ? moteus::Mode::kStopped : moteus::Mode::kPosition;
     generate_commands(t_prog_s_, actuator_a_out.position, actuator_b_out.position);
   }
 }
@@ -263,10 +263,15 @@ void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand
 
 void Dynamometer::sample_sensors() {
   ads_.prime_i2c();
-  uint16_t adc0 = ads_.readADC_SingleEnded(0);
-  sd_.torque_Nm = ads_.computeVolts(adc0);
+  uint16_t adc = ads_.readADC_SingleEnded(0);
+  float torque_volts = ads_.computeVolts(adc);
+
+  // TODO: Add temp read and calc
   sd_.temp1_C = 0;
   sd_.temp2_C = 0;
+
+  float tqsen_gain = (dynset_.tqsen==TorqueSensor::kTRD605_18) ? 18.0/50 : 5.0/5.0;
+  sd_.torque_Nm = (torque_volts - 5.0/3.0) * 3.0;
 
   ina1_.prime_i2c();
   sd_.ina1_voltage_V = ina1_.readBusVoltage()/1000;
