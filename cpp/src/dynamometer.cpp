@@ -86,11 +86,10 @@ std::pair<double, double> MinMaxVoltage(
 /// This holds the user-defined control logic.
 class Dynamometer {
  public:
-  Dynamometer(const DynamometerSettings& dynset) :
-    dynset_(dynset) {
-    // lpf(40, dynset.period_s, IIR::ORDER::OD3, IIR::TYPE::LOWPASS) {
-    
-    // lpf.dumpParams();
+  Dynamometer(const DynamometerSettings& dynset, Adafruit_ADS1015 &ads,
+  Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) :
+    dynset_(dynset), ads_(ads), ina1_(ina1), ina2_(ina2) {
+
     if (dynset_.actuator_1_id == dynset_.actuator_2_id) {
       throw std::runtime_error("The servos must have unique IDs");
     }
@@ -108,12 +107,19 @@ class Dynamometer {
     lpf_dcof_ = dcof_bwlp(lpf_order_, 2*lpf_fc_*dynset_.period_s);
     lpf_ccof_ = ccof_bwlp(lpf_order_);
     lpf_sf_ = sf_bwlp(lpf_order_,  2*lpf_fc_*dynset_.period_s);
-    for (size_t ii = 0; ii<lpf_order_+1; ++ii) {
-      fib_[ii] = 0;
-      fob_[ii] = 0;
-      std::cout << lpf_dcof_[ii] << '\t' << lpf_ccof_[ii] << '\n';
-    }
-    std::cout << lpf_sf_ << std::endl;
+
+    ads_.begin(0x48);
+    ads_.setGain(adsGain_t::GAIN_ONE);
+    ads_.setDataRate(RATE_ADS1015_3300SPS);
+    ina1_.begin(0x40);
+    ina1_.prime_i2c();
+    ina1_.setCurrentConversionTime(INA260_ConversionTime::INA260_TIME_204_us);
+    ina1_.setVoltageConversionTime(INA260_ConversionTime::INA260_TIME_204_us);
+    ina2_.begin(0x41);
+    ina2_.prime_i2c();
+    ina2_.setCurrentConversionTime(INA260_ConversionTime::INA260_TIME_204_us);
+    ina2_.setVoltageConversionTime(INA260_ConversionTime::INA260_TIME_204_us);
+  
   }
 
   /// This is called before any control begins, and must return the
@@ -186,14 +192,7 @@ class Dynamometer {
       auto& actuator_a_out = output->at(actuator_a_idx);
 
       actuator_a_out.mode = moteus::Mode::kPosition;
-      // actuator_a_out.position.position = std::sin(t_prog_s_);
-      // actuator_a_out.position.velocity = nan("");
-      // actuator_a_out.position.feedforward_torque = 0;
-
       actuator_b_out.mode = moteus::Mode::kPosition;
-      // actuator_b_out.position.position = std::sin(t_prog_s_);
-      // actuator_b_out.position.velocity = nan("");
-      // actuator_b_out.position.feedforward_torque = 0;
       generate_commands(t_prog_s_, actuator_a_out.position, actuator_b_out.position);
     }
   }
@@ -225,14 +224,10 @@ class Dynamometer {
         std::mt19937 gen(rd_());
         std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
         float rand_cmd = dist(gen);
-        // std::cout << '\t' << rand_cmd;
+
         // rotate buffers one element to the right to put new data in
-        std::rotate(fib_.rbegin(),
-          fib_.rbegin()+1,
-          fib_.rend());
-        std::rotate(fob_.rbegin(),
-          fob_.rbegin()+1,
-          fob_.rend());
+        std::rotate(fib_.rbegin(), fib_.rbegin()+1, fib_.rend());
+        std::rotate(fob_.rbegin(), fob_.rbegin()+1, fob_.rend());
         fib_[0] = rand_cmd;
         fob_[0] = 0; // this term should cancel below 
         rand_cmd = 0;
@@ -240,14 +235,14 @@ class Dynamometer {
           rand_cmd += fib_[ii]*lpf_ccof_[ii]*lpf_sf_ - fob_[ii]*lpf_dcof_[ii];
         }
         fob_[0] = rand_cmd;
-        // rand_cmd = 0;
+        
         rand_cmd = (rand_cmd > grp_max_ampl) ? grp_max_ampl : rand_cmd;
         rand_cmd = (rand_cmd < -grp_max_ampl) ? -grp_max_ampl : rand_cmd;
-        cmda.kp_scale = 0;
-        cmda.kd_scale = 0;
+        
+        cmda.kp_scale = 0; cmda.kd_scale = 0;
         cmda.feedforward_torque = rand_cmd;
-        cmdb.kp_scale = 0;
-        cmdb.kd_scale = 0;
+        
+        cmdb.kp_scale = 0; cmdb.kd_scale = 0;
         break;
         }
       case TestMode::kTorqueVelSweep: {
@@ -264,8 +259,33 @@ class Dynamometer {
     }
   }
 
+  void sample_sensors() {
+    ads_.prime_i2c();
+    uint16_t adc0 = ads_.readADC_SingleEnded(0);
+    sd_.torque_Nm = ads_.computeVolts(adc0);
+    sd_.temp1_C = 0;
+    sd_.temp2_C = 0;
+
+    ina1_.prime_i2c();
+    sd_.ina1_voltage_V = ina1_.readBusVoltage()/1000;
+    sd_.ina1_current_A = ina1_.readCurrent()/1000;
+    sd_.ina1_power_W = sd_.ina1_current_A * sd_.ina1_voltage_V;
+
+    ina2_.prime_i2c();
+    sd_.ina2_voltage_V = ina2_.readBusVoltage()/1000;
+    sd_.ina2_current_A = ina2_.readCurrent()/1000;
+    sd_.ina2_power_W = sd_.ina2_current_A * sd_.ina2_voltage_V;
+  }
+
  private:
+  
   const DynamometerSettings dynset_;
+  Adafruit_ADS1015 ads_;
+  Adafruit_INA260 ina1_;
+  Adafruit_INA260 ina2_;
+
+  SensorData sd_;
+
   uint64_t cycle_count_ = 0;
   double actuator_a_initial_ = std::numeric_limits<double>::quiet_NaN();
   double actuator_b_initial_ = std::numeric_limits<double>::quiet_NaN();
@@ -281,22 +301,20 @@ class Dynamometer {
   std::chrono::steady_clock::time_point t0_;
   double t_prog_s_;
 
-  // Filter lpf;
-
   double *lpf_dcof_;
   int *lpf_ccof_;
   double lpf_sf_;
   uint8_t lpf_order_ = 3;
-
   float lpf_fc_ = 40;
-
-  std::random_device rd_;
   std::vector<float> fib_;
   std::vector<float> fob_;
+
+  std::random_device rd_;
 };
 
-template <typename Controller>
-void Run(const DynamometerSettings& dynset, Controller* controller) {
+// template <typename Dynamometer>
+void Run(const DynamometerSettings& dynset, Dynamometer* dynamometer) {
+  
   // if (dynset.help) {
   //   DisplayUsage();
   //   return;
@@ -304,11 +322,13 @@ void Run(const DynamometerSettings& dynset, Controller* controller) {
 
   // * SETUP *
 
+  char cstr_buffer[128];
+
   // ** CONFIGURE CPU AND MOTEUS INFRASTRUCTURE **
   moteus::ConfigureRealtime(dynset.main_cpu);
   MoteusInterface::Options moteus_options;
   moteus_options.cpu = dynset.can_cpu;
-  moteus_options.servo_bus_map = controller->servo_bus_map();
+  moteus_options.servo_bus_map = dynamometer->servo_bus_map();
   MoteusInterface moteus_interface{moteus_options};
 
   // ** CONTAINER FOR COMMANDS **
@@ -323,7 +343,7 @@ void Run(const DynamometerSettings& dynset, Controller* controller) {
   std::vector<MoteusInterface::ServoReply> saved_replies;
 
   // ** INITIALIZE COMMANDS **
-  controller->Initialize(&commands);
+  dynamometer->Initialize(&commands);
 
   // ** PACKAGE COMMANDS AND REPLIES IN moteus_data **
   MoteusInterface::Data moteus_data;
@@ -344,7 +364,7 @@ void Run(const DynamometerSettings& dynset, Controller* controller) {
   double total_margin = 0.0;
   uint64_t margin_cycles = 0;
 
-  controller->set_t0(std::chrono::steady_clock::now());
+  dynamometer->set_t0(std::chrono::steady_clock::now());
 
   // * MAIN LOOP *
   // We will run at a fixed cycle time.
@@ -403,27 +423,17 @@ void Run(const DynamometerSettings& dynset, Controller* controller) {
     next_cycle += period;
 
 
-    controller->Run(saved_replies, &commands);
-
-    // std::cout << "position commands: " << std::setprecision(6) <<
-    //           commands[0].position.position
-    //           << ", " << commands[1].position.position << std::endl;
+    dynamometer->Run(saved_replies, &commands);
 
     if (can_result.valid()) {
       // Now we get the result of our last query and send off our new
       // one.
       const auto current_values = can_result.get();
-
       // We copy out the results we just got out.
       const auto rx_count = current_values.query_result_size;
       saved_replies.resize(rx_count);
       std::copy(replies.begin(), replies.begin() + rx_count,
                 saved_replies.begin());
-      // std::cout << "position replies (BEFORE commands): ";
-      // for (size_t ii = 0; ii < rx_count; ++ii) {
-      //   std::cout << std::setprecision(6) << replies[ii].result.position << ", ";
-      // }
-      // std::cout << std::endl;
     }
 
     // Then we can immediately ask them to be used again.
@@ -446,13 +456,22 @@ int main(int argc, char** argv) {
   auto opts = options.parse(argc, argv);
   std::cout << opts["comment"].as<std::string>() << std::endl;
 
+  Adafruit_ADS1015 ads;
+  Adafruit_INA260 ina1;
+  Adafruit_INA260 ina2;
+  if (!bcm2835_init()) {
+    std::cout << "bcm2835_init failed. Are you running as root??\n" << std::endl;
+    return 1;
+  }
+  bcm2835_i2c_begin();
+
   DynamometerSettings dynset(opts);
 
   // Lock memory for the whole process.
   LockMemory();
   ConfigureRealtime(dynset.main_cpu);
 
-  Dynamometer dynamometer{dynset};
+  Dynamometer dynamometer(dynset, ads, ina1, ina2);
   // return 0;
   Run(dynset, &dynamometer);
 

@@ -4,6 +4,18 @@
 
 #include "cxxopts/cxxopts.hpp"
 
+struct SensorData {
+  float torque_Nm;
+  float ina1_current_A;
+  float ina1_voltage_V;
+  float ina1_power_W;
+  float ina2_current_A;
+  float ina2_voltage_V;
+  float ina2_power_W;
+  float temp1_C;
+  float temp2_C;
+};
+
 void ConfigureRealtime(const uint8_t realtime) {
   {
     cpu_set_t cpuset = {};
