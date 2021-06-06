@@ -1,5 +1,5 @@
 # VPATH = src/adafruit/ src/main/ build/
-VPATH = src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir src/nlohmann
+VPATH = src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir src/nlohmann src/sensors
 # vpath %.h src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir src/nlohmann
 # vpath %.hpp src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir src/nlohmann
 # vpath %.cpp src src/mjbots/moteus src/mjbots/pi3hat src/libFilter src/iir
@@ -15,7 +15,7 @@ BIN_DIR := ./bin
 COMMON_OBJS := Adafruit_ADS1X15.o Adafruit_INA260.o I2CDevice.o filters.o iir.o
 ADS_OBJS := ads_test.o $(COMMON_OBJS)
 PI3T_OBJS := pi3hat_tool.o pi3hat.o $(COMMON_OBJS)
-DYNAMOMETER_OBJS := dynamometer.o pi3hat.o $(COMMON_OBJS)
+DYNAMOMETER_OBJS := dynamometer_main.o dynamometer.o pi3hat.o $(COMMON_OBJS)
 M_CTRL_OBJS := moteus_control_example.o pi3hat.o $(COMMON_OBJS)
 
 BINS := ads_test pi3hat_tool dynamometer
