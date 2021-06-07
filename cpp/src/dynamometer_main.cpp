@@ -14,6 +14,8 @@
 #include <thread>
 
 #include <cstdio>
+#include <ctime>
+#include <csignal>
 
 #include "mjbots/moteus/moteus_protocol.h"
 #include "mjbots/moteus/pi3hat_moteus_interface.h"
@@ -36,14 +38,20 @@ using json = nlohmann::json;
 
 char cstr_buffer[128];
 
+volatile sig_atomic_t interrupted=false; 
+
+void sig_handle(int s) {
+  interrupted = true;
+}
+
 std::string stringify_moteus_reply(MoteusInterface::ServoReply& reply) {
   uint8_t id = reply.id;
   auto& data = reply.result;
   std::ostringstream result;
-  sprintf(cstr_buffer, "%2d, % -f, % -f, ",
+  sprintf(cstr_buffer, "%2d,% -f,% -f,",
     data.mode, data.position, data.velocity);
   result << cstr_buffer;
-  sprintf(cstr_buffer, "% -f, % -f, %2d",
+  sprintf(cstr_buffer, "% -f,% -f,%2d",
     data.torque, data.temperature, data.fault);
   result << cstr_buffer;
   return result.str();
@@ -52,8 +60,8 @@ std::string stringify_moteus_reply(MoteusInterface::ServoReply& reply) {
 std::string stringify_moteus_reply_header(uint8_t id) {
   std::ostringstream result;
   std::string cN = "c"+std::to_string(id)+" ";
-  result << cN << "mode, " << cN << "position [rev], " << cN << "velocity [Hz], "
-    << cN << "torque [Nm] " << cN << "temp [C] " << cN << "fault";
+  result << cN << "mode," << cN << "position [rev]," << cN << "velocity [Hz],"
+    << cN << "torque [Nm]," << cN << "temp [C]," << cN << "fault";
   return result.str();
 }
 
@@ -62,14 +70,14 @@ std::string stringify_actuator(MoteusInterface::ServoCommand command,
   uint8_t id = reply.id;
   std::ostringstream result;
   auto& cmd_data = command.position;
-  sprintf(cstr_buffer, "% -f, % -f, % -f, ",
+  sprintf(cstr_buffer, "% -f,% -f,% -f,",
     cmd_data.position*2*PI/gear_reduction,
     cmd_data.velocity*2*PI/gear_reduction,
     cmd_data.feedforward_torque*gear_reduction);
   result << cstr_buffer;
 
   auto& reply_data = reply.result;
-  sprintf(cstr_buffer, "% -f, % -f, % -f",
+  sprintf(cstr_buffer, "% -f,% -f,% -f",
     reply_data.position*2*PI/gear_reduction,
     reply_data.velocity*2*PI/gear_reduction,
     reply_data.torque*gear_reduction);
@@ -82,12 +90,12 @@ std::string stringify_actuator(MoteusInterface::ServoCommand command,
 std::string stringify_actuator_headers(uint8_t id) {
   std::ostringstream result;
   std::string aN = "a"+std::to_string(id)+" ";
-  result << aN << "position cmd [rad], " << aN << "velocity cmd [rad/s], " << aN << "ff torque cmd [Nm], "
-    << aN << "position [rad], " << aN << "velocity [rad/s], " << aN << "ff torque [Nm]";
+  result << aN << "position cmd [rad]," << aN << "velocity cmd [rad/s]," << aN << "ff torque cmd [Nm],"
+    << aN << "position [rad]," << aN << "velocity [rad/s]," << aN << "ff torque [Nm]";
   return result.str();
 }
 
-void Run(Dynamometer* dynamometer) {
+void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
   
   // if (dynset.help) {
   //   DisplayUsage();
@@ -98,6 +106,12 @@ void Run(Dynamometer* dynamometer) {
   Dynamometer::DynamometerSettings& dynset = dynamometer->dynset_;
 
   // * SETUP *
+
+  struct sigaction sigIntHandler;
+  sigIntHandler.sa_handler = sig_handle;
+  sigemptyset(&sigIntHandler.sa_mask);
+  sigIntHandler.sa_flags = 0;
+  sigaction(SIGINT, &sigIntHandler, NULL);
 
   // ** CONFIGURE CPU AND MOTEUS INFRASTRUCTURE **
   moteus::ConfigureRealtime(dynset.main_cpu);
@@ -146,9 +160,15 @@ void Run(Dynamometer* dynamometer) {
 
   dynamometer->set_t0(std::chrono::steady_clock::now());
 
+  data_file << "time [s]," << stringify_actuator_headers(1) << ","
+    << stringify_moteus_reply_header(1) << ","
+    << stringify_actuator_headers(2) << ","
+    << stringify_moteus_reply_header(2) << ","
+    << dynamometer->stringify_sensor_data_headers() << "\n";
+
   // * MAIN LOOP *
   // We will run at a fixed cycle time.
-  while (true) {
+  while (!interrupted) {
     cycle_count++;
     margin_cycles++;
     // Terminal status update
@@ -246,17 +266,21 @@ void Run(Dynamometer* dynamometer) {
       auto a1_str = stringify_actuator(saved_commands.at(cmd1_idx), saved_replies.at(rpl1_idx), dynset.gear1);
       auto a2_str = stringify_actuator(saved_commands.at(cmd2_idx), saved_replies.at(rpl2_idx), dynset.gear2);
 
-
       auto sensor_str = dynamometer->stringify_sensor_data();
-      std::cout << a1_str << ",    " << c1_str << ",    "
-        << a2_str << ",    " << c2_str << std::endl;
+      data_file << std::setw(10) << std::setprecision(8) << (dynamometer->get_program_time()) << ", "
+        << a1_str << "," << c1_str << ","
+        << a2_str << "," << c2_str << "," << sensor_str << "\n";
     }
     else {
-      std::cout << "missing moteus reply" << std::endl;
+      data_file << "# missing moteus reply" << std::endl;
+      std::cout << "# missing moteus reply" << std::endl;
     }
 
     if (cycle_count > 1) std::copy(commands.begin(), commands.end(), saved_commands.begin());
   }
+  // IF INTERRUPTED
+  data_file.close();
+  std::exit(EXIT_SUCCESS);
 }
 
 
@@ -264,6 +288,20 @@ int main(int argc, char** argv) {
   auto options = dyn_opts();
   auto opts = options.parse(argc, argv);
   std::cout << opts["comment"].as<std::string>() << std::endl;
+
+  std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
+  std::time_t nowc = std::chrono::system_clock::to_time_t(now);
+  std::ostringstream filename_stream;
+  filename_stream << std::put_time(std::localtime(&nowc), "dynamometer_test_%d_%m_%Y_%H-%M-%S.csv");
+  std::string filename = filename_stream.str();
+
+  std::ofstream data_file("/home/pi/embir-modular-leg/dynamometer-data/"+filename);
+
+  std::vector<std::string> arg_list(argv, argv+argc);
+  data_file << "# ";
+  for (auto arg_str : arg_list) data_file << arg_str << " ";
+  data_file << std::endl;
+  // return 0;
 
   Adafruit_ADS1015 ads;
   Adafruit_INA260 ina1;
@@ -273,6 +311,8 @@ int main(int argc, char** argv) {
     return 1;
   }
   bcm2835_i2c_begin();
+
+
 
   LockMemory();
 
@@ -284,7 +324,8 @@ int main(int argc, char** argv) {
   ConfigureRealtime(dynset.main_cpu);
 
   // return 0;
-  Run(&dynamometer);
+  Run(&dynamometer, data_file);
 
+  data_file.close();
   return 0;
 }

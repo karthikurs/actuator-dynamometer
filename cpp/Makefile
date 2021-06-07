@@ -24,7 +24,7 @@ SYS_LIB_DIRS := /opt/vc/
 SYS_INCLUDES := $(foreach lib,$(SYS_LIB_DIRS),$(addsuffix include,$(lib)))
 SYS_OBJS := $(foreach lib,$(SYS_LIB_DIRS),$(addsuffix lib,$(lib)))
 
-CFLAGS := -std=c++11  -ggdb -c -pthread -fpermissive -Wno-psabi -I$(SYS_INCLUDES) -I src
+CFLAGS := -std=c++11 -O3 -c -pthread -fpermissive -Wno-psabi -I$(SYS_INCLUDES) -I src
 
 all: $(BIN_DIR)/ads_test $(BIN_DIR)/pi3hat_tool
 
@@ -38,7 +38,7 @@ $(BIN_DIR)/pi3hat_tool : $(foreach obj,$(PI3T_OBJS),$(addprefix $(BUILD_DIR)/,$(
 
 $(BIN_DIR)/dynamometer : $(foreach obj,$(DYNAMOMETER_OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) 
 	@echo "$@"
-	g++ -ggdb $^ -o $@ -L$(SYS_OBJS) -I src/mjbots/moteus -I src/iir -lbcm_host -lbcm2835 -lpthread
+	g++ -O3 $^ -o $@ -L$(SYS_OBJS) -I src/mjbots/moteus -I src/iir -lbcm_host -lbcm2835 -lpthread
 
 $(BIN_DIR)/moteus_control_example : $(foreach obj,$(M_CTRL_OBJS),$(addprefix $(BUILD_DIR)/,$(obj))) 
 	@echo "$@"

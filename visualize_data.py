@@ -72,8 +72,8 @@ def main() :
         
         fig = plt.figure()
         ax = fig.gca()
-        ax.hist(dt, bins = 1000)
-        # plt.plot(dt)
+        # ax.hist(dt, bins = 1000)
+        plt.plot(dt)
         plt.show()
 
         fs = 1/Ts

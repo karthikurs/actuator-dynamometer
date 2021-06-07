@@ -313,19 +313,25 @@ void Dynamometer::sample_sensors() {
 
 std::string Dynamometer::stringify_sensor_data() {
   std::ostringstream result;
-  sprintf(cstr_buffer, "%f, %f, %f, ", sd_.torque_Nm, sd_.temp1_C, sd_.temp2_C);
+  sprintf(cstr_buffer, "%f", sd_.torque_Nm);
   result << cstr_buffer;
-  sprintf(cstr_buffer, "%f, %f, %f, ", sd_.ina1_voltage_V, sd_.ina1_current_A, sd_.ina1_power_W);
+  if(dynset_.testmode == TestMode::kGRP) return result.str();
+
+  sprintf(cstr_buffer, ",%f,%f,", sd_.temp1_C, sd_.temp2_C);
   result << cstr_buffer;
-  sprintf(cstr_buffer, "%f, %f, %f", sd_.ina2_voltage_V, sd_.ina2_current_A, sd_.ina2_power_W);
+  sprintf(cstr_buffer, "%f,%f,%f,", sd_.ina1_voltage_V, sd_.ina1_current_A, sd_.ina1_power_W);
+  result << cstr_buffer;
+  sprintf(cstr_buffer, "%f,%f,%f", sd_.ina2_voltage_V, sd_.ina2_current_A, sd_.ina2_power_W);
   result << cstr_buffer;
   return result.str();
 }
 
 std::string Dynamometer::stringify_sensor_data_headers() {
   std::ostringstream result;
-  result << (dynset_.tqsen == TorqueSensor::kTRD605_18) ? "trd605-18 torque [Nm]" : "trs605-5 torque [Nm]";
-  result << ", motor temp [C], housing temp [C], ina1 voltage [V], ina1 current [A], ina1 power [W], ina2 voltage [V], ina2 current [A], ina2 power [W]";
+  result << ((dynset_.tqsen == TorqueSensor::kTRD605_18) ? "trd605-18 torque [Nm]" : "trs605-5 torque [Nm]");
+  if(dynset_.testmode == TestMode::kGRP) return result.str();
+
+  result << ",motor temp [C],housing temp [C],ina1 voltage [V],ina1 current [A],ina1 power [W],ina2 voltage [V],ina2 current [A],ina2 power [W]";
   return result.str();
 }
 
