@@ -95,6 +95,17 @@ B_ex8 = Bs(3)-Bs(1)
 
 hold off;
 
+%% cpp validation
+
+datafile = "dynamometer_test_07_06_2021_14-57-55.csv";
+
+[Ts, t_exp] = load_grp_cpp_exp(datafile);
+
+t_spa = spa(t_exp);
+ttf = tfest(t_exp,1,0,0);
+bodeplot(t_spa, ttf);
+
+
 %% Direction Viscous Damping
 
 datafile1 = "futek_test_27_04_2021_18-05-31.csv";
@@ -172,4 +183,22 @@ function [Ts_res, v_exp, q_exp, t_exp] = load_grp_experiment(datafile, Ts_res)
     v_exp = iddata(a1_v, ts, Ts_res);
     q_exp = iddata(a1_v, a1_q, Ts_res);
     t_exp = iddata(ts, a1_q, Ts_res);
+end
+
+function [Ts, t_exp] = load_grp_cpp_exp(datafile)
+    data_table = readtable(datafile,'PreserveVariableNames',true,'CommentStyle',"#");
+    headers = data_table.Properties.VariableNames;
+
+    time_idx = find(ismember(headers,'time [s]'));
+    a1_v_idx = find(ismember(headers,'a1 velocity [rad/s]'));
+    ts_idx = find(ismember(headers,'trs605-5 torque [Nm]'));
+
+    time = table2array(data_table(1:end, time_idx));
+    a1_v = table2array(data_table(1:end, a1_v_idx));
+    ts = table2array(data_table(1:end, ts_idx));
+
+    dt = abs(time - circshift(time, 1));
+    Ts = median(dt);
+    
+    t_exp = iddata(a1_v, ts, Ts);
 end
