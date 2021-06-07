@@ -110,9 +110,13 @@ class Dynamometer {
 
   void generate_commands(double time, mjbots::moteus::PositionCommand &cmda, mjbots::moteus::PositionCommand &cmdb);
   
+  void sample_random();
+
   void sample_sensors();
 
   std::string stringify_sensor_data();
+
+  std::string stringify_sensor_data_headers();
 
   double get_program_time();
 
@@ -151,4 +155,6 @@ class Dynamometer {
   std::vector<float> fob_;
 
   std::random_device rd_;
+  std::uniform_real_distribution<> realdist;
+  float random_sample = 0;
 };

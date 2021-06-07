@@ -102,6 +102,9 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
   lpf_fc_ = grp_j["cutoff_frequency_Hz"];
   grp_max_ampl = grp_j["torque_amplitude_Nm"];
 
+  std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
+  realdist = dist;
+
   fib_.resize(lpf_order_+1);
   fob_.resize(lpf_order_+1);
   lpf_dcof_ = dcof_bwlp(lpf_order_, 2*lpf_fc_*dynset_.period_s);
@@ -222,9 +225,8 @@ void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand
     case TestMode::kDirectDamping:
       break;
     case TestMode::kGRP: {
-      std::mt19937 gen(rd_());
-      std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
-      float rand_cmd = dist(gen);
+      
+      float rand_cmd = random_sample;
 
       // rotate buffers one element to the right to put new data in
       std::rotate(fib_.rbegin(), fib_.rbegin()+1, fib_.rend());
@@ -262,6 +264,11 @@ void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand
   sample_sensors();
 }
 
+void Dynamometer::sample_random() {
+  std::mt19937 gen(rd_());
+  random_sample = realdist(gen);
+}
+
 void Dynamometer::sample_sensors() {
   ads_.prime_i2c();
   uint16_t adc = ads_.readADC_SingleEnded(0);
@@ -274,15 +281,27 @@ void Dynamometer::sample_sensors() {
   float tqsen_gain = (dynset_.tqsen==TorqueSensor::kTRD605_18) ? 18.0/50 : 5.0/5.0;
   sd_.torque_Nm = (torque_volts - 5.0/3.0) * 3.0;
 
-  ina1_.prime_i2c();
-  sd_.ina1_voltage_V = ina1_.readBusVoltage()/1000;
-  sd_.ina1_current_A = ina1_.readCurrent()/1000;
-  sd_.ina1_power_W = sd_.ina1_current_A * sd_.ina1_voltage_V;
+  if (dynset_.testmode == TestMode::kGRP) {
+    // run faster in GRP mode
+    sd_.ina1_voltage_V = 0;
+    sd_.ina1_current_A = 0;
+    sd_.ina1_power_W = 0;
 
-  ina2_.prime_i2c();
-  sd_.ina2_voltage_V = ina2_.readBusVoltage()/1000;
-  sd_.ina2_current_A = ina2_.readCurrent()/1000;
-  sd_.ina2_power_W = sd_.ina2_current_A * sd_.ina2_voltage_V;
+    sd_.ina2_voltage_V = 0;
+    sd_.ina2_current_A = 0;
+    sd_.ina2_power_W = 0;
+  }
+  else {
+    ina1_.prime_i2c();
+    sd_.ina1_voltage_V = ina1_.readBusVoltage()/1000;
+    sd_.ina1_current_A = ina1_.readCurrent()/1000;
+    sd_.ina1_power_W = sd_.ina1_current_A * sd_.ina1_voltage_V;
+
+    ina2_.prime_i2c();
+    sd_.ina2_voltage_V = ina2_.readBusVoltage()/1000;
+    sd_.ina2_current_A = ina2_.readCurrent()/1000;
+    sd_.ina2_power_W = sd_.ina2_current_A * sd_.ina2_voltage_V;
+  }
 }
 
 std::string Dynamometer::stringify_sensor_data() {
@@ -293,6 +312,13 @@ std::string Dynamometer::stringify_sensor_data() {
   result << cstr_buffer;
   sprintf(cstr_buffer, "%f, %f, %f", sd_.ina2_voltage_V, sd_.ina2_current_A, sd_.ina2_power_W);
   result << cstr_buffer;
+  return result.str();
+}
+
+std::string Dynamometer::stringify_sensor_data_headers() {
+  std::ostringstream result;
+  result << (dynset_.tqsen == TorqueSensor::kTRD605_18) ? "trd605-18 torque [Nm]" : "trs605-5 torque [Nm]";
+  result << ", motor temp [C], housing temp [C], ina1 voltage [V], ina1 current [A], ina1 power [W], ina2 voltage [V], ina2 current [A], ina2 power [W]";
   return result.str();
 }
 

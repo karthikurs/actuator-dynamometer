@@ -49,6 +49,14 @@ std::string stringify_moteus_reply(MoteusInterface::ServoReply& reply) {
   return result.str();
 }
 
+std::string stringify_moteus_reply_header(uint8_t id) {
+  std::ostringstream result;
+  std::string cN = "c"+std::to_string(id)+" ";
+  result << cN << "mode, " << cN << "position [rev], " << cN << "velocity [Hz], "
+    << cN << "torque [Nm] " << cN << "temp [C] " << cN << "fault";
+  return result.str();
+}
+
 std::string stringify_actuator(MoteusInterface::ServoCommand command,
   MoteusInterface::ServoReply& reply, float gear_reduction) {
   uint8_t id = reply.id;
@@ -68,6 +76,14 @@ std::string stringify_actuator(MoteusInterface::ServoCommand command,
   result << cstr_buffer;
 
   if(command.id != reply.id) {std::cout << "\n\nAAAAAAHHHHHH ID MISMATCH\n\n" << std::endl;}
+  return result.str();
+}
+
+std::string stringify_actuator_headers(uint8_t id) {
+  std::ostringstream result;
+  std::string aN = "a"+std::to_string(id)+" ";
+  result << aN << "position cmd [rad], " << aN << "velocity cmd [rad/s], " << aN << "ff torque cmd [Nm], "
+    << aN << "position [rad], " << aN << "velocity [rad/s], " << aN << "ff torque [Nm]";
   return result.str();
 }
 
@@ -121,7 +137,9 @@ void Run(Dynamometer* dynamometer) {
 
   // ** TERMINAL STATUS UPDATE PERIOD **
   const auto status_period = std::chrono::milliseconds(100);
+  const auto grp_sampling_period = std::chrono::milliseconds(25);
   auto next_status = next_cycle + status_period;
+  auto next_grp = next_cycle + grp_sampling_period;
   uint64_t cycle_count = 0;
   double total_margin = 0.0;
   uint64_t margin_cycles = 0;
@@ -173,6 +191,14 @@ void Run(Dynamometer* dynamometer) {
         std::cout << "\nSkipped " << skip_count << " cycles\n";
       }
     }
+
+    {
+      const auto now = std::chrono::steady_clock::now();
+      if (now > next_grp) {
+        dynamometer->sample_random();
+        next_grp += grp_sampling_period;
+      }
+    }
     
     // Sleep current thread until next control interval, per the period setting.
     {
@@ -183,7 +209,6 @@ void Run(Dynamometer* dynamometer) {
       total_margin += elapsed.count();
     }
     next_cycle += period;
-
 
     dynamometer->Run(saved_replies, &commands);
 
