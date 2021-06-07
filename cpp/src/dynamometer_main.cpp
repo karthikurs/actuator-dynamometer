@@ -66,6 +66,8 @@ std::string stringify_actuator(MoteusInterface::ServoCommand command,
     reply_data.velocity*2*PI/gear_reduction,
     reply_data.torque*gear_reduction);
   result << cstr_buffer;
+
+  if(command.id != reply.id) {std::cout << "\n\nAAAAAAHHHHHH ID MISMATCH\n\n" << std::endl;}
   return result.str();
 }
 
@@ -209,10 +211,17 @@ void Run(Dynamometer* dynamometer) {
     can_result = promise->get_future();
 
     if (cycle_count > 5 && saved_replies.size() >= 2) {
-      auto c1_str = stringify_moteus_reply(saved_replies.at(0));
-      auto c2_str = stringify_moteus_reply(saved_replies.at(1));
-      auto a1_str = stringify_actuator(saved_commands.at(0), saved_replies.at(0), dynset.gear1);
-      auto a2_str = stringify_actuator(saved_commands.at(1), saved_replies.at(1), dynset.gear2);
+      uint8_t cmd1_idx = (saved_commands.at(0).id == 1) ? 0 : 1;
+      uint8_t cmd2_idx = (cmd1_idx == 0) ? 1 : 0;
+      uint8_t rpl1_idx = (saved_replies.at(0).id == 1) ? 0 : 1;
+      uint8_t rpl2_idx = (rpl1_idx == 0) ? 1 : 0;
+
+      auto c1_str = stringify_moteus_reply(saved_replies.at(rpl1_idx));
+      auto c2_str = stringify_moteus_reply(saved_replies.at(rpl2_idx));
+      auto a1_str = stringify_actuator(saved_commands.at(cmd1_idx), saved_replies.at(rpl1_idx), dynset.gear1);
+      auto a2_str = stringify_actuator(saved_commands.at(cmd2_idx), saved_replies.at(rpl2_idx), dynset.gear2);
+
+
       auto sensor_str = dynamometer->stringify_sensor_data();
       std::cout << a1_str << ",    " << c1_str << ",    "
         << a2_str << ",    " << c2_str << std::endl;
