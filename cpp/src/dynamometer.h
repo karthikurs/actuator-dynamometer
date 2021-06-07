@@ -59,6 +59,7 @@ class Dynamometer {
 
   struct DynamometerSettings {
     float period_s;
+    float duration_s;
     float gear1;
     float gear2;
 
@@ -121,6 +122,8 @@ class Dynamometer {
   double get_program_time();
 
   void parse_settings(cxxopts::ParseResult dyn_opts);
+
+  inline float get_torque() {return sd_.torque_Nm;}
 
   DynamometerSettings dynset_;
  private:

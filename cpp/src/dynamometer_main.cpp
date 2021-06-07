@@ -83,7 +83,7 @@ std::string stringify_actuator(MoteusInterface::ServoCommand command,
     reply_data.torque*gear_reduction);
   result << cstr_buffer;
 
-  if(command.id != reply.id) {std::cout << "\n\nAAAAAAHHHHHH ID MISMATCH\n\n" << std::endl;}
+  if(command.id != reply.id) {std::cout << "\n\nAAAAAAHHHHHH ID MISMATCH -- cmd_id = " << command.id << ", reply_id = " << reply.id << "\n\n";}
   return result.str();
 }
 
@@ -160,15 +160,21 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
 
   dynamometer->set_t0(std::chrono::steady_clock::now());
 
-  data_file << "time [s]," << stringify_actuator_headers(1) << ","
-    << stringify_moteus_reply_header(1) << ","
-    << stringify_actuator_headers(2) << ","
-    << stringify_moteus_reply_header(2) << ","
-    << dynamometer->stringify_sensor_data_headers() << "\n";
+  data_file << "time [s],";
+  if(dynset.testmode == Dynamometer::TestMode::kGRP) {
+    data_file << "a1 velocity [rad/s],trs605-5 torque [Nm]\n";
+  }
+  else {
+    data_file << stringify_actuator_headers(1) << ","
+      << stringify_moteus_reply_header(1) << ","
+      << stringify_actuator_headers(2) << ","
+      << stringify_moteus_reply_header(2) << ","
+      << dynamometer->stringify_sensor_data_headers() << "\n";
+  }
 
   // * MAIN LOOP *
   // We will run at a fixed cycle time.
-  while (!interrupted) {
+  while (!interrupted && dynamometer->get_program_time() < dynset.duration_s) {
     cycle_count++;
     margin_cycles++;
     // Terminal status update
@@ -209,6 +215,11 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
       }
       if (skip_count) {
         std::cout << "\nSkipped " << skip_count << " cycles\n";
+        data_file << "\n# Skipped " << skip_count << " cycles\n";
+      }
+      if (skip_count > 20) {
+        data_file.close();
+        std::exit(EXIT_FAILURE);
       }
     }
 
@@ -267,9 +278,16 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
       auto a2_str = stringify_actuator(saved_commands.at(cmd2_idx), saved_replies.at(rpl2_idx), dynset.gear2);
 
       auto sensor_str = dynamometer->stringify_sensor_data();
-      data_file << std::setw(10) << std::setprecision(8) << (dynamometer->get_program_time()) << ", "
-        << a1_str << "," << c1_str << ","
-        << a2_str << "," << c2_str << "," << sensor_str << "\n";
+      data_file << std::setw(10) << std::setprecision(8) << (dynamometer->get_program_time()) << ",";
+      if (dynset.testmode == Dynamometer::TestMode::kGRP) {
+        data_file << std::setw(10) << std::setprecision(8)
+          << saved_replies.at(rpl1_idx).result.velocity*2*PI/dynset.gear1 << ",";
+        data_file << std::setw(10) << std::setprecision(8) << (dynamometer->get_torque()) << "\n";
+      }
+      else {
+        data_file << a1_str << "," << c1_str << ","
+          << a2_str << "," << c2_str << "," << sensor_str << "\n";
+      }
     }
     else {
       data_file << "# missing moteus reply" << std::endl;

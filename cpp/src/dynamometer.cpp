@@ -340,6 +340,7 @@ double Dynamometer::get_program_time() {return t_prog_s_;}
 void Dynamometer::parse_settings(cxxopts::ParseResult dyn_opts) {
   dynset_.dyn_opts = dyn_opts;
   dynset_.period_s = 1.0/dyn_opts["frequency"].as<float>();
+  dynset_.duration_s = dyn_opts["duration"].as<float>();
   dynset_.gear1 = dyn_opts["gear1"].as<float>();
   dynset_.gear2 = dyn_opts["gear2"].as<float>();
   dynset_.actuator_1_id = dyn_opts["actuator-1-id"].as<uint8_t>();
