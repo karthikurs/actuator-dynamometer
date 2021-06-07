@@ -41,6 +41,7 @@
 #include <algorithm>
 
 #include <cstdio>
+#include <cstdlib>
 
 #include "mjbots/moteus/moteus_protocol.h"
 #include "mjbots/moteus/pi3hat_moteus_interface.h"
@@ -96,6 +97,7 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
   actuator_a_id = dynset_.actuator_1_id;
   actuator_b_id = dynset_.actuator_2_id;
   
+  std::cout << "loading configs... \n";
   std::ifstream grp_if("configs/grp.json");
   json grp_j; grp_if >> grp_j;
   lpf_order_ = grp_j["butterworth_order"];
@@ -105,12 +107,17 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
   std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
   realdist = dist;
 
+  std::cout << "restoring calibrations... \n";
+  system("python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '1=1;2=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_1_dyn.log");
+  system("python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '1=1;2=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_2_dyn.log");
+
   fib_.resize(lpf_order_+1);
   fob_.resize(lpf_order_+1);
   lpf_dcof_ = dcof_bwlp(lpf_order_, 2*lpf_fc_*dynset_.period_s);
   lpf_ccof_ = ccof_bwlp(lpf_order_);
   lpf_sf_ = sf_bwlp(lpf_order_,  2*lpf_fc_*dynset_.period_s);
 
+  std::cout << "setting up sensors... \n";
   ads_.begin(0x48);
   ads_.setGain(adsGain_t::GAIN_ONE);
   ads_.setDataRate(RATE_ADS1015_3300SPS);
