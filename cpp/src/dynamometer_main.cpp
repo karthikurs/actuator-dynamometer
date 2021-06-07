@@ -40,10 +40,10 @@ std::string stringify_moteus_reply(MoteusInterface::ServoReply& reply) {
   uint8_t id = reply.id;
   auto& data = reply.result;
   std::ostringstream result;
-  sprintf(cstr_buffer, "%d, %f, %f, ",
+  sprintf(cstr_buffer, "%2d, % -f, % -f, ",
     data.mode, data.position, data.velocity);
   result << cstr_buffer;
-  sprintf(cstr_buffer, "%f, %f, %d",
+  sprintf(cstr_buffer, "% -f, % -f, %2d",
     data.torque, data.temperature, data.fault);
   result << cstr_buffer;
   return result.str();
@@ -54,14 +54,14 @@ std::string stringify_actuator(MoteusInterface::ServoCommand command,
   uint8_t id = reply.id;
   std::ostringstream result;
   auto& cmd_data = command.position;
-  sprintf(cstr_buffer, "%f, %f, %f, ",
+  sprintf(cstr_buffer, "% -f, % -f, % -f, ",
     cmd_data.position*2*PI/gear_reduction,
     cmd_data.velocity*2*PI/gear_reduction,
     cmd_data.feedforward_torque*gear_reduction);
   result << cstr_buffer;
 
   auto& reply_data = reply.result;
-  sprintf(cstr_buffer, "%f, %f, %f",
+  sprintf(cstr_buffer, "% -f, % -f, % -f",
     reply_data.position*2*PI/gear_reduction,
     reply_data.velocity*2*PI/gear_reduction,
     reply_data.torque*gear_reduction);
