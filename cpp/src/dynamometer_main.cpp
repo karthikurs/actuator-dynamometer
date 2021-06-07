@@ -27,6 +27,8 @@
 #include "iir/iir.h"
 #include "nlohmann/json.hpp"
 
+#define PI 3.1415926
+
 using namespace mjbots;
 
 using MoteusInterface = moteus::Pi3HatMoteusInterface;
@@ -36,13 +38,33 @@ char cstr_buffer[128];
 
 std::string stringify_moteus_reply(MoteusInterface::ServoReply& reply) {
   uint8_t id = reply.id;
-  auto data = reply.result;
+  auto& data = reply.result;
   std::ostringstream result;
   sprintf(cstr_buffer, "%d, %f, %f, ",
     data.mode, data.position, data.velocity);
   result << cstr_buffer;
   sprintf(cstr_buffer, "%f, %f, %d",
     data.torque, data.temperature, data.fault);
+  result << cstr_buffer;
+  return result.str();
+}
+
+std::string stringify_actuator(MoteusInterface::ServoCommand command,
+  MoteusInterface::ServoReply& reply, float gear_reduction) {
+  uint8_t id = reply.id;
+  std::ostringstream result;
+  auto& cmd_data = command.position;
+  sprintf(cstr_buffer, "%f, %f, %f, ",
+    cmd_data.position*2*PI/gear_reduction,
+    cmd_data.velocity*2*PI/gear_reduction,
+    cmd_data.feedforward_torque*gear_reduction);
+  result << cstr_buffer;
+
+  auto& reply_data = reply.result;
+  sprintf(cstr_buffer, "%f, %f, %f",
+    reply_data.position*2*PI/gear_reduction,
+    reply_data.velocity*2*PI/gear_reduction,
+    reply_data.torque*gear_reduction);
   result << cstr_buffer;
   return result.str();
 }
@@ -68,9 +90,12 @@ void Run(Dynamometer* dynamometer) {
 
   // ** CONTAINER FOR COMMANDS **
   std::vector<MoteusInterface::ServoCommand> commands;
+  std::vector<MoteusInterface::ServoCommand> saved_commands;
   for (const auto& pair : moteus_options.servo_bus_map) {
     commands.push_back({});
     commands.back().id = pair.first;
+    saved_commands.push_back({});
+    saved_commands.back().id = pair.first;
   }
 
   // ** CONTAINER FOR REPLIES **
@@ -186,12 +211,17 @@ void Run(Dynamometer* dynamometer) {
     if (cycle_count > 5 && saved_replies.size() >= 2) {
       auto c1_str = stringify_moteus_reply(saved_replies.at(0));
       auto c2_str = stringify_moteus_reply(saved_replies.at(1));
+      auto a1_str = stringify_actuator(saved_commands.at(0), saved_replies.at(0), dynset.gear1);
+      auto a2_str = stringify_actuator(saved_commands.at(1), saved_replies.at(1), dynset.gear2);
       auto sensor_str = dynamometer->stringify_sensor_data();
-      std::cout << c1_str << ", " << c2_str << ", " << sensor_str << std::endl;
+      std::cout << a1_str << ",    " << c1_str << ",    "
+        << a2_str << ",    " << c2_str << std::endl;
     }
     else {
       std::cout << "missing moteus reply" << std::endl;
     }
+
+    if (cycle_count > 1) std::copy(commands.begin(), commands.end(), saved_commands.begin());
   }
 }
 

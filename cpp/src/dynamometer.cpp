@@ -192,7 +192,8 @@ void Dynamometer::Run(const std::vector<MoteusInterface::ServoReply>& status,
     auto& actuator_a_out = output->at(actuator_a_idx);
 
     actuator_a_out.mode = moteus::Mode::kPosition;
-    actuator_b_out.mode = (dynset_.testmode == TestMode::kGRP) ? moteus::Mode::kStopped : moteus::Mode::kPosition;
+    actuator_b_out.mode = moteus::Mode::kPosition;
+    // actuator_b_out.mode = (dynset_.testmode == TestMode::kGRP) ? moteus::Mode::kStopped : moteus::Mode::kPosition;
     generate_commands(t_prog_s_, actuator_a_out.position, actuator_b_out.position);
   }
 }
