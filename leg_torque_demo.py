@@ -24,7 +24,9 @@ from kinematics import *
 
 async def main():
     c1, c2, kt_1, kt_2 = await init_controllers()
+    print('Kt_1')
     print(kt_1)
+    print('Kt_2')
     print(kt_2)
 #Defines the transport and stops the error that prevents the transport from not being able to be found
     transport = moteus_pi3hat.Pi3HatRouter(
@@ -45,7 +47,7 @@ async def main():
 
 #
 
-    print([p1,v1,t1])
+    # print([p1,v1,t1])
 
     kin = Kinematics()
 
@@ -79,14 +81,18 @@ async def main():
 
             # p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1/kt_1, d_A=0.0, query=True), g=6)
             # p2, v2, t2 = parse_reply(await c2.set_current(q_A=t2/kt_2, d_A=0.0, query=True), g=6)
+
+            #kt_1 is 0.1095229868838896
+            
             # print('p1={},v1={},t1={}'.format(p1, v1, t1))
             # print('p2={},v2={},t2={}'.format(p2, v2, t2))
-
+            
+            ###############################
+            #Set up probe to query current time and compare it to next time index, 
+            #if time is greater tan next time index swiwtch torque signal
+            ###############################
 
         
-            # adj_1=0.16087623512950663
-            # adj_2=1.0125842766155904
-            
             adj_1=0.10433981845496693
             adj_2=0.34315861931457507
             d_p1=0+adj_1
@@ -100,11 +106,10 @@ async def main():
 
             p1_h=p1-adj_1
             p2_h=p2-adj_2
-            
-            print('p1={},v1={},t1={}'.format(p1, v1, t1))
-            print('p1_h={},v1={},t1={}'.format(p1_h, v1, t1))
-            print('p2={},v2={},t2={}'.format(p2, v2, t2))
-            print('p2_h={},v2={},t2={}'.format(p2_h, v2, t2))
+
+            # print('p1_h={},v1={},t1={}'.format(p1_h, v1, t1))
+            # print('p2={},v2={},t2={}'.format(p2, v2, t2))
+            # print('p2_h={},v2={},t2={}'.format(p2_h, v2, t2))
  
             #Zero out tests
             #Home pose defaults
