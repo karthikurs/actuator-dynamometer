@@ -22,6 +22,8 @@ import math
 from moteus_wrapper import *
 from kinematics import *
 
+
+
 async def main():
     c1, c2, kt_1, kt_2 = await init_controllers()
     print(kt_1)
@@ -54,7 +56,9 @@ async def main():
     [x0,y0] = [x+20,y-10]
  
     k = 0.5
-
+    torques=np.empty([0,3],dtype=float)
+    print(torques)
+    start=time.time()
     while True:
         try:
             fx = -k*(x-x0)
@@ -100,6 +104,13 @@ async def main():
 
             p1_h=p1-adj_1
             p2_h=p2-adj_2
+
+            ctime=time.time()-start
+            torques=np.append(torques,np.array([ [ctime,\
+                                                t1,\
+                                                t2] ]),axis=0)
+
+            # np.savetxt("pose_trace.csv", data, delimiter=",")
             
             print('p1={},v1={},t1={}'.format(p1, v1, t1))
             print('p1_h={},v1={},t1={}'.format(p1_h, v1, t1))
@@ -139,6 +150,9 @@ async def main():
             time.sleep(0.005)
         except (KeyboardInterrupt, SystemExit):
             print("stopping actuators and cleaning...")
+            print('Saving torques')
+            np.savetxt("home_pos_torque_log.csv", torques, delimiter=",")
+            print('Torques saved')
             await c1.set_stop()
             await c2.set_stop()
             await asyncio.sleep(0.2)
@@ -147,6 +161,9 @@ async def main():
             sys.exit()
         except:
             os.system("sudo ip link set can0 down")
+            print('Saving torques')
+            np.savetxt("home_pos_torque_log.csv", torques, delimiter=",")
+            print('Torques saved')
             print("something went wrong")
             raise
             sys.exit()

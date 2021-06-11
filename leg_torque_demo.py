@@ -21,6 +21,7 @@ import time
 import math
 from moteus_wrapper import *
 from kinematics import *
+import csv
 
 async def main():
     c1, c2, kt_1, kt_2 = await init_controllers()
@@ -56,6 +57,20 @@ async def main():
     [x0,y0] = [x+20,y-10]
  
     k = 0.5
+    j=0
+    dtimes=[]
+    t1des=[]
+    t2des=[]
+
+    with open('home_pos_torque_log.csv') as des_torques:
+        csvReader = csv.reader(des_torques)
+        for row in csvReader:
+            dtimes.append(float(row[0]))
+            t1des.append(float(row[1]))
+            t2des.append(float(row[2]))
+
+
+    start=time.time()
 
     while True:
         try:
@@ -100,16 +115,26 @@ async def main():
             d_pos1=(d_p1*6)/(2*np.pi)
             d_pos2=(d_p2*6)/(2*np.pi)
 
+            ctime=time.time()-start
 
-            p1, v1, t1 = parse_reply(await c1.set_position(position=np.NaN, velocity=0.5, stop_position=d_pos1,query=True), g=6)
-            p2, v2, t2 = parse_reply(await c2.set_position(position=np.NaN, velocity=0.5, stop_position=d_pos2,query=True), g=6)
+            if abs(ctime-dtimes[j]<0.009):
+                # print("Current Time:",end='')
+                # print(ctime,end='   ')
+                # print("Desired Time:",end='')
+                # print(dtimes[j],end='   ')
+                # print("Diff:",end='')
+                # print(ctime-dtimes[j])
+                j=j+1
+                
+            p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1des[j]/kt_1, d_A=0.0, query=True), g=6)
+            # p2, v2, t2 = parse_reply(await c2.set_current(q_A=t2/kt_2, d_A=0.0, query=True), g=6)
 
             p1_h=p1-adj_1
             p2_h=p2-adj_2
 
-            # print('p1_h={},v1={},t1={}'.format(p1_h, v1, t1))
+            print('p1_h={},v1={},t1={},t1des={}'.format(p1_h, v1, t1,t1des[j]))
             # print('p2={},v2={},t2={}'.format(p2, v2, t2))
-            # print('p2_h={},v2={},t2={}'.format(p2_h, v2, t2))
+            print('p2_h={},v2={},t2={}'.format(p2_h, v2, t2))
  
             #Zero out tests
             #Home pose defaults
