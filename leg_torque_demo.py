@@ -61,8 +61,18 @@ async def main():
     dtimes=[]
     t1des=[]
     t2des=[]
+    tracked_torques=np.empty([0,5],dtype=float)
 
-    with open('home_pos_torque_log.csv') as des_torques:
+    kp=1.05
+    kd=0.000
+    t1=0
+    t2=0
+
+
+
+
+    # with open('home_pos_torque_log.csv') as des_torques:
+    with open('up_down_torque_log.csv') as des_torques:
         csvReader = csv.reader(des_torques)
         for row in csvReader:
             dtimes.append(float(row[0]))
@@ -71,17 +81,20 @@ async def main():
 
 
     start=time.time()
+    err=0
+    prev_err=0
+    ctime_prev=0.02
 
     while True:
         try:
-            fx = -k*(x-x0)
-            fy = -k*(y-y0)
+            # fx = -k*(x-x0)
+            # fy = -k*(y-y0)
 
-            J = kin.jacobian_theta(p1,p2)
-            Jinv = LA.inv(J)
-            dt = np.matmul(Jinv, np.array([[fx],[fy]]))
-            t1 = dt[0,0]
-            t2 = dt[1,0]
+            # J = kin.jacobian_theta(p1,p2)
+            # Jinv = LA.inv(J)
+            # dt = np.matmul(Jinv, np.array([[fx],[fy]]))
+            # t1 = dt[0,0]
+            # t2 = dt[1,0]
             # print('fx={} fy={} t1={} t2={}'.format(fx, fy, t1, t2))
             # replies = await transport.cycle(\
             #                 [c1.make_stop(query=True),\
@@ -116,25 +129,83 @@ async def main():
             d_pos2=(d_p2*6)/(2*np.pi)
 
             ctime=time.time()-start
+            
+            
+        
+            if j<len(dtimes)-1:  
+                err=t1des[j]-t1
+                P=kp*err
+                D=kd*(err-prev_err)/(ctime-ctime_prev)
 
-            if abs(ctime-dtimes[j]<0.009):
-                # print("Current Time:",end='')
-                # print(ctime,end='   ')
-                # print("Desired Time:",end='')
-                # print(dtimes[j],end='   ')
-                # print("Diff:",end='')
-                # print(ctime-dtimes[j])
-                j=j+1
+                ctime_prev=ctime
+                prev_err=err
+
+                t1PID=P+D
+                if t1PID>3:
+                    t1PID=3
+
+
+                if abs(ctime-dtimes[j]<0.009):
+                    # print("Current Time:",end='')
+                    # print(ctime,end='   ')
+                    # print("Desired Time:",end='')
+                    # print(dtimes[j],end='   ')
+                    # print("Diff:",end='')
+                    # print(ctime-dtimes[j])
+                    j=j+1
+  
+                p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1PID/kt_1, d_A=0.0, query=True), g=6)
+                # p2, v2, t2 = parse_reply(await c2.set_current(q_A=t2/kt_2, d_A=0.0, query=True), g=6)
+
+                tracked_torques=np.append(tracked_torques,np.array([ [ctime,\
+                                                t1,\
+                                                t1des[j],\
+                                                err,\
+                                                t1PID] ]),axis=0)
+
+                p1_h=p1-adj_1
+                p2_h=p2-adj_2
+                print('p1_h={},v1={},t1={},t1des={}'.format(p1_h, v1, t1,t1des[j]))
+                # print('p2={},v2={},t2={}'.format(p2, v2, t2))
+                print('p2_h={},v2={},t2={}'.format(p2_h, v2, t2))
+
+            else:
+                err=0-t1
+                P=kp*err
+                D=kd*(err-prev_err)/(ctime-ctime_prev)
+
+                ctime_prev=ctime
+                prev_err=err
+
+                t1PID=P+D
+                if t1PID>3:
+                    t1PID=3
+
+                replies = await transport.cycle(\
+                            [c1.make_stop(query=True),\
+                            c2.make_stop(query=True)])
+
+                reply1 = replies[0]
+                reply2 = replies[1]
+                p1, v1, t1 = parse_reply(reply1, 6)
+                p2, v2, t2 = parse_reply(reply2, 6)
+
+                tracked_torques=np.append(tracked_torques,np.array([ [ctime,\
+                                                t1,\
+                                                0,\
+                                                err,\
+                                                t1PID] ]),axis=0)
+
+
+                p1_h=p1-adj_1
+                p2_h=p2-adj_2
+
+                print('p1_h={},v1={},t1={}'.format(p1_h, v1, t1))
+                # print('p2={},v2={},t2={}'.format(p2, v2, t2))
+                print('p2_h={},v2={},t2={}'.format(p2_h, v2, t2))
                 
-            p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1des[j]/kt_1, d_A=0.0, query=True), g=6)
-            # p2, v2, t2 = parse_reply(await c2.set_current(q_A=t2/kt_2, d_A=0.0, query=True), g=6)
 
-            p1_h=p1-adj_1
-            p2_h=p2-adj_2
-
-            print('p1_h={},v1={},t1={},t1des={}'.format(p1_h, v1, t1,t1des[j]))
-            # print('p2={},v2={},t2={}'.format(p2, v2, t2))
-            print('p2_h={},v2={},t2={}'.format(p2_h, v2, t2))
+        
  
             #Zero out tests
             #Home pose defaults
@@ -169,6 +240,9 @@ async def main():
             time.sleep(0.005)
         except (KeyboardInterrupt, SystemExit):
             print("stopping actuators and cleaning...")
+            print('Saving torques')
+            np.savetxt("tracked_torque_log.csv", tracked_torques, delimiter=",")
+            print('Torques saved')
             await c1.set_stop()
             await c2.set_stop()
             await asyncio.sleep(0.2)
@@ -177,9 +251,13 @@ async def main():
             sys.exit()
         except:
             os.system("sudo ip link set can0 down")
+            print('Saving torques')
+            np.savetxt("tracked_torque_log.csv", tracked_torques, delimiter=",")
+            print('Torques saved')
             print("something went wrong")
             raise
             sys.exit()
+            
 
 if __name__ == "__main__" :
     asyncio.run(main())
