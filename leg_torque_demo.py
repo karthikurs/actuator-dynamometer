@@ -153,8 +153,10 @@ async def main():
                     # print("Diff:",end='')
                     # print(ctime-dtimes[j])
                     j=j+1
-  
-                p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1PID/kt_1, d_A=0.0, query=True), g=6)
+                
+                p1, v1, t1 = parse_reply(await c1.set_position(position=np.NaN, velocity=np.NaN, feedforward_torque=t1PID,\
+                                                                kp_scale=0,kd_scale=0,query=True), g=6)
+                # p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1PID/kt_1, d_A=0.0, query=True), g=6)
                 # p2, v2, t2 = parse_reply(await c2.set_current(q_A=t2/kt_2, d_A=0.0, query=True), g=6)
 
                 tracked_torques=np.append(tracked_torques,np.array([ [ctime,\
