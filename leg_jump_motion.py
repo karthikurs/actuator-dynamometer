@@ -137,15 +137,15 @@ async def main():
             #p2_h=-0.8247064210870179,v2=0.02996056226339143,t2=0.0
             #p2_h=0.5899434446743528,v2=0.02996056226339143,t2=0.0
 
+            #Leg angles for hopping leg length
+            # p1=-0.38873629799668624,v1=0.02996056226339143,t1=0.0
+            # p2=1.1741983772602964,v2=-0.02996056226339143,t2=0.0
+            # p1_h=-0.5406003959973648,v1=0.02996056226339143,t1=0.0
+            # p2_h=0.09727994829841435,v2=-0.02996056226339143,t2=0.0
+            # p1=-0.309
+            # p2=0.788
 
-            # time.sleep(2)
 
-            # p1, v1, t1 = parse_reply(await c1.set_rezero(rezero=0.0, query=True), g=6)
-            # p2, v2, t2 = parse_reply(await c2.set_rezero(rezero=0.0, query=True), g=6)    
-            
-            # print('ZEROED OUT')
-            # print('p1={},v1={},t1={}'.format(p1, v1, t1))
-            # print('p2={},v2={},t2={}'.format(p2, v2, t2))
 
             [x,y] = kin.fk_vec(p1,p2)[-1]
             time.sleep(0.005)
