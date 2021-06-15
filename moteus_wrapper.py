@@ -38,6 +38,25 @@ async def e_stop():
     await c1.set_stop()
     await c2.set_stop()
 
+async def rezero():
+#Resets position angles to within one rotation
+    c1, c2, kt_1, kt_2 = await init_controllers()
+    print(kt_1)
+    print(kt_2)
+    transport = moteus_pi3hat.Pi3HatRouter(
+        servo_bus_map = {
+            1:[1, 2]
+        },
+    )
+
+    for _ in range(2):
+        replies = await transport.cycle(\
+                                    [c1.make_rezero(rezero=0.0, query=True),\
+                                    c2.make_rezero(rezero=0.0,query=True)])
+
+    print('Angles reset to within one rotation')
+    
+
 async def init_controllers():
     # print("bringing up CAN...")
     # os.system("sudo ip link set can0 down")

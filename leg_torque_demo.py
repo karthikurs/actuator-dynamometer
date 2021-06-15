@@ -46,7 +46,11 @@ async def main():
     p1, v1, t1 = parse_reply(reply1, 1)
     p2, v2, t2 = parse_reply(reply2, 1)
 
-#
+
+    adj_1=0.10433981845496693
+    adj_2=0.34315861931457507
+    p1_h=p1-adj_1
+    p2_h=p2-adj_2
 
     # print([p1,v1,t1])
 
@@ -59,6 +63,7 @@ async def main():
     k = 0.5
     j=0
     dtimes=[]
+    dtimes2=[]
     t1des=[]
     t2des=[]
     tracked_torques=np.empty([0,5],dtype=float)
@@ -72,12 +77,13 @@ async def main():
 
 
     # with open('home_pos_torque_log.csv') as des_torques:
-    with open('up_down_torque_log.csv') as des_torques:
+    with open('torque_test.csv') as des_torques:
         csvReader = csv.reader(des_torques)
         for row in csvReader:
             dtimes.append(float(row[0]))
             t1des.append(float(row[1]))
-            t2des.append(float(row[2]))
+            dtimes2.append(float(row[2]))
+            t2des.append(float(row[3]))
 
 
     start=time.time()
@@ -146,15 +152,25 @@ async def main():
 
 
                 if abs(ctime-dtimes[j]<0.009):
-                    # print("Current Time:",end='')
-                    # print(ctime,end='   ')
+                    # print("Current Time:",end='')  
                     # print("Desired Time:",end='')
                     # print(dtimes[j],end='   ')
                     # print("Diff:",end='')
                     # print(ctime-dtimes[j])
                     j=j+1
-                
-                p1, v1, t1 = parse_reply(await c1.set_position(position=np.NaN, velocity=np.NaN, feedforward_torque=t1PID,\
+
+                if abs(p1_h)>=1.3:
+                    replies = await transport.cycle(\
+                            [c1.make_stop(query=True),\
+                            c2.make_stop(query=True)])
+                    reply1 = replies[0]
+                    reply2 = replies[1]
+                    p1, v1, t1 = parse_reply(reply1, 6)
+                    p2, v2, t2 = parse_reply(reply2, 6)
+                    print('############################STOPPING#############')
+                        
+                else:
+                    p1, v1, t1 = parse_reply(await c1.set_position(position=np.NaN, velocity=np.NaN, feedforward_torque=t1PID,\
                                                                 kp_scale=0,kd_scale=0,query=True), g=6)
                 # p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1PID/kt_1, d_A=0.0, query=True), g=6)
                 # p2, v2, t2 = parse_reply(await c2.set_current(q_A=t2/kt_2, d_A=0.0, query=True), g=6)
