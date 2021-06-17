@@ -176,6 +176,138 @@ legend('spa','spa 10','spa 100','spa 1000',...
 title(datafile);
 hold off;
 
+%% Second order identification from estimated frequency response
+
+format compact
+% clc
+
+
+% Model Transfer function estimate
+% wn = 80;
+% zeta = 0.6;
+
+% Noise magnitude
+% input_amp = 1;
+% output_amp = .1;
+
+% System setup (time domain)
+% Fs = 1000;                                              % Sample rate (Hz)
+% sys = tf(wn^2,[1 2*zeta*wn wn^2]);                      % Creates the transfer function
+% input = normrnd(0,5,1,10000);                           % White noise input (arbitary units, or could be N)
+% %input = smooth(input, 50);                             % Low pass filter with a 10 point moving average filter
+% t = 0:.001:(length(input)-1)*.001;                      % Time vec (s)
+% [output, t] = lsim(sys,input,t);                        % Simulates output, given the tf and the input
+% outputNew = output+normrnd(0,output_amp,length(output),1);             % Adding output noise to system response, ouput
+% inputNew = input+normrnd(0,input_amp,1,length(input));  % Adding input noise on system input 
+
+datafile = "dynamometer-data/dynamometer_test_07_06_2021_15-23-56.csv";
+
+[Ts, t_exp] = load_grp_cpp_exp(datafile);
+Fs = 1/Ts;
+input = t_exp.InputData;
+output = t_exp.OutputData;
+
+sprintf("data length = %d",length(input))
+
+% System ID
+window = 30;                                          % Number of samples to use in window
+overlap = 5;                                            % Number of samples to overlap
+
+% [EstHn, EstFn] = tfestimate(inputNew, outputNew,window, overlap, [], Fs);        
+% EstMagn   = abs(EstHn);                                 % Determines magnitude for complex number
+% EstPhasen = angle(EstHn)*(180/pi);                      % Estimate the phase
+% EstOmegan = EstFn*2*pi;                                 % Conversion of frequency axis to rad/s
+% 
+% % Unwrap phase                                          % Phase can wrap around 360 deg, and this loop unwraps around it--the net change to the phase is zero
+% for i = 2:length(EstPhasen)
+%     if EstPhasen(i) - EstPhasen(i-1) > 180
+%         EstPhasen(i) = EstPhasen(i) - 360;
+%     elseif EstPhasen(i) - EstPhasen(i-1) < -180
+%         EstPhasen(i) = EstPhasen(i) + 360;
+%     end
+% end
+
+[EstH, EstF] = tfestimate(input, output, window, overlap, [], Fs);
+EstMag   = abs(EstH);                                   % Determines magnitude for complex number
+EstPhase = angle(EstH)*(180/pi);                        % Estimate the phase
+EstOmega = EstF*2*pi;                                   % Conversion of frequency axis to rad/s
+
+% Unwrap phase                                          % Phase can wrap around 360 deg, and this loop unwraps around it--the net change to the phase is zero
+for i = 2:length(EstPhase)
+    if EstPhase(i) - EstPhase(i-1) > 100
+        EstPhase(i) = EstPhase(i) - 360;
+    elseif EstPhase(i) - EstPhase(i-1) < -100
+        EstPhase(i) = EstPhase(i) + 360;
+    end
+end
+
+% Creation of actual frequency response
+F = logspace(0, log10(1/Ts), 1000);                               % Creates log space variable
+Omega = 2 * pi * F;                                     % Frequency vector (rad/s) 
+% [HMag, HPhase, HOmega] = bode(sys, Omega);              % Uses BODE to determine the real TF
+% HMag   = squeeze(HMag);                                 % BODE outputs a 3D matrix, this collapses it
+% HPhase = squeeze(HPhase); 
+
+% Fitting 2nd Order system to the estimated frequency response using tfestimate
+% Ts = mean(diff(t));                                      % Get the sampling time
+sysfun = @(X) costfunc(X,EstMag,EstPhase,EstOmega,Ts); % Define a cost function, putting estimated frequency with noise as a target
+lb = [0 0 0];                                            % Lower bound of the constriant, does not permit negative coefficients (not physically possible)
+ub =[];                                                  % Upper bound of the constriant    
+
+x0 =[2.636e-14+0.01*rand() 0.0001186+0.01*rand() 0.0233+0.01*rand()];
+x0 =[rand() rand() rand()];
+x0 =[0.01 0.01 0.01];% Initial value for the optimizer, random numbers in this case
+options = optimoptions('fmincon','OptimalityTolerance',1e-15);      % Setting an agressive torelance to give better fitting
+[result, fval] = fmincon(sysfun,x0,[],[],[],[],lb,ub,[],options);   % Result is the estimated parmeters. compare with true parameters
+
+Hbk= tf(1,[result(1) result(2) result(3)]);              % Optimized 2nd order system
+
+
+[EstHMag2nd, EstHPhase2nd, EstOmega2nd] = bode(Hbk, Omega);       % Uses BODE to determine the real TF
+EstMag2nd  = squeeze(EstHMag2nd);                                 % BODE outputs a 3D matrix, this collapses it
+EstPhase2nd = squeeze(EstHPhase2nd); 
+
+[outputsim, t] = lsim(Hbk,input,t_exp.SamplingInstants);
+fit_vaf = vaf(output, outputsim);
+
+figure                                                    % Plotting in frequency domain
+%  Magnitude plot on top
+subplot(3,1,1)
+sgtitle(sprintf("window = %d, overlap = %d, vaf = %2.4fpc",window,overlap,fit_vaf));
+% semilogx(HOmega, mag2db(HMag), 'linewidth',2)
+% hold on
+semilogx(EstOmega, mag2db(EstMag),'linewidth',1)
+hold on
+semilogx(EstOmega2nd, mag2db(EstMag2nd),'linewidth',1)
+
+xlabel('\omega (rad/s)')
+ylabel('|H| (dB)')
+legend('Data', '2nd order fit')
+hold off
+
+%  Phase plot on bottom
+subplot(3,1,2)
+% semilogx(HOmega, HPhase, 'linewidth',2)
+% hold on
+semilogx(EstOmega, EstPhase, 'linewidth',1)
+hold on
+semilogx(EstOmega2nd, EstPhase2nd, 'linewidth',1)
+xlabel('\omega (rad/s)')
+ylabel('Phase (^o)')
+hold off
+
+% sys_format = tf(1,[1/wn^2 2*zeta/wn 1]);                % Convert original system to format with 1 in the numerator (the system is identical)
+% True_system = sys_format                                % Print the true system that generated the data
+Estimated_system = Hbk                                  % Print the identified system for comparison
+
+subplot(3,1,3)
+plot(t, output);
+hold on;
+plot(t, outputsim);
+legend('data','fit');
+hold off;
+
+
 function [Ts_res, v_exp, q_exp, t_exp] = load_grp_experiment(datafile, Ts_res)
     data_table = readtable(datafile,'PreserveVariableNames',true);
     headers = data_table.Properties.VariableNames;
