@@ -14,7 +14,7 @@ function summation = costfunc(X,targetMag,targetPhase,freq,Ts)
 % Thanks to Ung Hee for assistance with this code
 
 
-transfer_cont= tf(1,[X(1) X(2) X(3)]);          % define the function that you want to optimize
+transfer_cont= tf(1,[X(1) X(2)]);          % define the function that you want to optimize
 transfer = c2d(transfer_cont,Ts);               % convert it to discrete time
 
 [mag,phase,wout] =bode(transfer,freq);          % obtain the magnitude/phase/frequency from bode

@@ -210,8 +210,8 @@ output = t_exp.OutputData;
 sprintf("data length = %d",length(input))
 
 % System ID
-window = 30;                                          % Number of samples to use in window
-overlap = 5;                                            % Number of samples to overlap
+window = 1000;                                          % Number of samples to use in window
+overlap = 0;                                            % Number of samples to overlap
 
 % [EstHn, EstFn] = tfestimate(inputNew, outputNew,window, overlap, [], Fs);        
 % EstMagn   = abs(EstHn);                                 % Determines magnitude for complex number
@@ -251,16 +251,16 @@ Omega = 2 * pi * F;                                     % Frequency vector (rad/
 % Fitting 2nd Order system to the estimated frequency response using tfestimate
 % Ts = mean(diff(t));                                      % Get the sampling time
 sysfun = @(X) costfunc(X,EstMag,EstPhase,EstOmega,Ts); % Define a cost function, putting estimated frequency with noise as a target
-lb = [0 0 0];                                            % Lower bound of the constriant, does not permit negative coefficients (not physically possible)
+lb = [0 0];                                            % Lower bound of the constriant, does not permit negative coefficients (not physically possible)
 ub =[];                                                  % Upper bound of the constriant    
 
 x0 =[2.636e-14+0.01*rand() 0.0001186+0.01*rand() 0.0233+0.01*rand()];
 x0 =[rand() rand() rand()];
-x0 =[0.01 0.01 0.01];% Initial value for the optimizer, random numbers in this case
+x0 =[0.01 0.01];% Initial value for the optimizer, random numbers in this case
 options = optimoptions('fmincon','OptimalityTolerance',1e-15);      % Setting an agressive torelance to give better fitting
 [result, fval] = fmincon(sysfun,x0,[],[],[],[],lb,ub,[],options);   % Result is the estimated parmeters. compare with true parameters
 
-Hbk= tf(1,[result(1) result(2) result(3)]);              % Optimized 2nd order system
+Hbk= tf(1,[result(1) result(2)]);              % Optimized 2nd order system
 
 
 [EstHMag2nd, EstHPhase2nd, EstOmega2nd] = bode(Hbk, Omega);       % Uses BODE to determine the real TF
@@ -282,7 +282,7 @@ semilogx(EstOmega2nd, mag2db(EstMag2nd),'linewidth',1)
 
 xlabel('\omega (rad/s)')
 ylabel('|H| (dB)')
-legend('Data', '2nd order fit')
+legend('Data', '1st order fit')
 hold off
 
 %  Phase plot on bottom
