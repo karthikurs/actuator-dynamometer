@@ -79,15 +79,8 @@
       3.197670469019269
     ]
   },
-  "winding_resistance": 0.5748005881994606,
-  "inductance": null,
-  "pid_dq_kp": null,
-  "pid_dq_ki": null,
-  "torque_bw_hz": null,
-  "encoder_filter_bw_hz": null,
-  "encoder_filter_kp": null,
-  "encoder_filter_ki": null,
-  "v_per_hz": 0.4025243761996163,
-  "kv": 74.52964782714841,
+  "winding_resistance": 1.4,
+  "v_per_hz": 0.4229067033678567,
+  "kv": 70.93763177810193,
   "unwrapped_position_scale": 1.0
 }
