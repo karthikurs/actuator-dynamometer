@@ -161,6 +161,8 @@ void Dynamometer::Initialize(std::vector<MoteusInterface::ServoCommand>* command
   res.watchdog_timeout = moteus::Resolution::kIgnore;
   for (auto& cmd : *commands) {
     cmd.resolution = res;
+    cmd.query.velocity = moteus::Resolution::kFloat;
+    cmd.query.position = moteus::Resolution::kFloat;
   }
 }
 
