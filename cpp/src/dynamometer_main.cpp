@@ -215,7 +215,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
       }
       if (skip_count) {
         std::cout << "\nSkipped " << skip_count << " cycles\n";
-        data_file << "\n# Skipped " << skip_count << " cycles\n";
+        // data_file << "\n# Skipped " << skip_count << " cycles\n";
       }
       if (skip_count > 20) {
         data_file.close();
@@ -290,7 +290,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
       }
     }
     else {
-      data_file << "# missing moteus reply" << std::endl;
+      // data_file << "# missing moteus reply" << std::endl;
       std::cout << "# missing moteus reply" << std::endl;
     }
 
