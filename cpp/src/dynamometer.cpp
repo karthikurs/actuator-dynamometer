@@ -150,10 +150,8 @@ std::map<int, int> Dynamometer::servo_bus_map() const {
 void Dynamometer::Initialize(std::vector<MoteusInterface::ServoCommand>* commands) {
   moteus::PositionResolution res;
   res.position = moteus::Resolution::kFloat;
-  // res.position = moteus::Resolution::kInt16;
   res.velocity = moteus::Resolution::kFloat;
-  // res.velocity = moteus::Resolution::kInt16;
-  res.feedforward_torque = moteus::Resolution::kInt16;
+  res.feedforward_torque = moteus::Resolution::kFloat;
   res.kp_scale = moteus::Resolution::kInt16;
   res.kd_scale = moteus::Resolution::kInt16;
   res.maximum_torque = moteus::Resolution::kIgnore;
@@ -163,6 +161,7 @@ void Dynamometer::Initialize(std::vector<MoteusInterface::ServoCommand>* command
     cmd.resolution = res;
     cmd.query.velocity = moteus::Resolution::kFloat;
     cmd.query.position = moteus::Resolution::kFloat;
+    cmd.query.torque = moteus::Resolution::kFloat;
   }
 }
 

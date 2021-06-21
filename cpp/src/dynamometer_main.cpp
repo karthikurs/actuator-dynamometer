@@ -155,6 +155,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
   auto next_status = next_cycle + status_period;
   auto next_grp = next_cycle + grp_sampling_period;
   uint64_t cycle_count = 0;
+  uint64_t total_skip_count = 0;
   double total_margin = 0.0;
   uint64_t margin_cycles = 0;
 
@@ -206,6 +207,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
         next_status += status_period;
         total_margin = 0;
         margin_cycles = 0;
+        data_file.flush();
       }
 
       int skip_count = 0;
@@ -213,11 +215,13 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
         skip_count++;
         next_cycle += period;
       }
+      total_skip_count += skip_count;
       if (skip_count) {
-        std::cout << "\nSkipped " << skip_count << " cycles\n";
+        std::cout << "Skipped " << total_skip_count << "/" << cycle_count <<" cycles in total\n";
         // data_file << "\n# Skipped " << skip_count << " cycles\n";
       }
       if (skip_count > 20) {
+        std::cout << std::endl;
         data_file.close();
         std::exit(EXIT_FAILURE);
       }
