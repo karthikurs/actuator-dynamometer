@@ -96,7 +96,7 @@ B_ex8 = Bs(3)-Bs(1)
 hold off;
 
 
-%% Direction Viscous Damping
+%% Direct Viscous Damping
 
 datafile1 = "futek_test_27_04_2021_18-05-31.csv";
 
@@ -180,29 +180,82 @@ hold off;
 
 format compact
 % clc
-
-
-% Model Transfer function estimate
-% wn = 80;
-% zeta = 0.6;
-
-% Noise magnitude
-% input_amp = 1;
-% output_amp = .1;
-
-% System setup (time domain)
-% Fs = 1000;                                              % Sample rate (Hz)
-% sys = tf(wn^2,[1 2*zeta*wn wn^2]);                      % Creates the transfer function
-% input = normrnd(0,5,1,10000);                           % White noise input (arbitary units, or could be N)
-% %input = smooth(input, 50);                             % Low pass filter with a 10 point moving average filter
-% t = 0:.001:(length(input)-1)*.001;                      % Time vec (s)
-% [output, t] = lsim(sys,input,t);                        % Simulates output, given the tf and the input
-% outputNew = output+normrnd(0,output_amp,length(output),1);             % Adding output noise to system response, ouput
-% inputNew = input+normrnd(0,input_amp,1,length(input));  % Adding input noise on system input 
-
 datafile = "dynamometer-data/dynamometer_test_07_06_2021_15-23-56.csv";
 
-[Ts, t_exp] = load_grp_cpp_exp(datafile);
+shaft_datafiles = ["dynamometer-data/dynamometer_test_22_06_2021_12-27-48.csv",...
+    "dynamometer-data/dynamometer_test_22_06_2021_12-33-14.csv",...
+    "dynamometer-data/dynamometer_test_22_06_2021_12-36-41.csv",...
+    "dynamometer-data/dynamometer_test_22_06_2021_12-38-46.csv",...
+    "dynamometer-data/dynamometer_test_22_06_2021_12-40-56.csv"];
+no_gb_datafiles = ["dynamometer-data/dynamometer_test_21_06_2021_15-54-26.csv",...
+    "dynamometer-data/dynamometer_test_21_06_2021_16-08-24.csv"];
+gb_datafiles = ["dynamometer-data/dynamometer_test_21_06_2021_16-22-42.csv",...
+    "dynamometer-data/dynamometer_test_22_06_2021_11-52-06.csv",...
+    "dynamometer-data/dynamometer_test_22_06_2021_11-59-35.csv",...
+    "dynamometer-data/dynamometer_test_22_06_2021_12-05-03.csv"];
+
+
+% [Ts, t_exp] = load_grp_cpp_exp(datafile);
+figure 
+set(0, 'DefaultTextInterpreter', 'latex');
+set(0, 'DefaultLegendInterpreter', 'latex');
+set(0, 'DefaultAxesTickLabelInterpreter', 'latex');
+
+[Ts, t_exp] = load_grp_cpp_exp(shaft_datafiles);
+[Hbk, Est, Fit, t, output, outputsim, J, B] = id_sys(Ts, t_exp);
+EstOmega = Est{1}; EstMag = Est{2}; EstPhase = Est{3};
+FitOmega = Fit{1}; FitMag = Fit{2}; FitPhase = Fit{3};
+J_shaft = J; B_shaft = B;
+fit_vaf = vaf(output, outputsim);
+
+ax_mag = subplot(1,3,1);
+% sgtitle(sprintf("window = %d, overlap = %d, vaf = %2.4fpc",window,overlap,fit_vaf));
+semilogx(EstOmega./(2*pi), mag2db(EstMag))
+hold on
+semilogx(FitOmega./(2*pi), mag2db(FitMag))
+title(sprintf("Shaft Hardware, vaf = %2.4f%",fit_vaf));
+xlabel('f (Hz)')
+ylabel('|H| (dB)')
+legend('Data', '1st order fit')
+hold off
+
+[Ts, t_exp] = load_grp_cpp_exp(no_gb_datafiles);
+[Hbk, Est, Fit, t, output, outputsim, J, B] = id_sys(Ts, t_exp);
+EstOmega = Est{1}; EstMag = Est{2}; EstPhase = Est{3};
+FitOmega = Fit{1}; FitMag = Fit{2}; FitPhase = Fit{3};
+J_no_gb = J; B_no_gb = B;
+fit_vaf = vaf(output, outputsim);
+
+ax_mag = subplot(1,3,1);
+semilogx(EstOmega./(2*pi), mag2db(EstMag))
+hold on
+semilogx(FitOmega./(2*pi), mag2db(FitMag))
+title(sprintf("RI50 No Gearbox, vaf = %2.4f%",fit_vaf));
+xlabel('f (Hz)')
+ylabel('|H| (dB)')
+legend('Data', '1st order fit')
+hold off
+
+[Ts, t_exp] = load_grp_cpp_exp(gb_datafiles);
+[Hbk, Est, Fit, t, output, outputsim, J, B] = id_sys(Ts, t_exp);
+EstOmega = Est{1}; EstMag = Est{2}; EstPhase = Est{3};
+FitOmega = Fit{1}; FitMag = Fit{2}; FitPhase = Fit{3};
+J_gb = J; B_gb = B;
+fit_vaf = vaf(output, outputsim);
+
+ax_mag = subplot(1,3,3);
+semilogx(EstOmega./(2*pi), mag2db(EstMag))
+hold on
+semilogx(FitOmega./(2*pi), mag2db(FitMag))
+title(sprintf("RI50 6:1 Gearbox, vaf = %2.4f%",fit_vaf));
+xlabel('$f$ (Hz)')
+ylabel('|H| (dB)')
+legend('Data', '1st order fit')
+hold off
+
+
+function [Hbk, Est, Fit, t, output, outputsim, J, B] = id_sys(Ts, t_exp)
+
 Fs = 1/Ts;
 input = t_exp.InputData;
 output = t_exp.OutputData;
@@ -210,22 +263,8 @@ output = t_exp.OutputData;
 sprintf("data length = %d",length(input))
 
 % System ID
-window = 100;                                          % Number of samples to use in window
-overlap = 250;                                            % Number of samples to overlap
-
-% [EstHn, EstFn] = tfestimate(inputNew, outputNew,window, overlap, [], Fs);        
-% EstMagn   = abs(EstHn);                                 % Determines magnitude for complex number
-% EstPhasen = angle(EstHn)*(180/pi);                      % Estimate the phase
-% EstOmegan = EstFn*2*pi;                                 % Conversion of frequency axis to rad/s
-% 
-% % Unwrap phase                                          % Phase can wrap around 360 deg, and this loop unwraps around it--the net change to the phase is zero
-% for i = 2:length(EstPhasen)
-%     if EstPhasen(i) - EstPhasen(i-1) > 180
-%         EstPhasen(i) = EstPhasen(i) - 360;
-%     elseif EstPhasen(i) - EstPhasen(i-1) < -180
-%         EstPhasen(i) = EstPhasen(i) + 360;
-%     end
-% end
+window = 10000;                                          % Number of samples to use in window
+overlap = 4000;                                            % Number of samples to overlap
 
 [EstH, EstF] = tfestimate(input, output, window, overlap, [], Fs);
 EstMag   = abs(EstH);                                   % Determines magnitude for complex number
@@ -242,59 +281,73 @@ for i = 2:length(EstPhase)
 end
 
 % Creation of actual frequency response
-F = logspace(0, log10(pi/Ts), 1000);                               % Creates log space variable
+F = logspace(log10(2*window/length(input)), log10(1/Ts), 1000);                               % Creates log space variable
 Omega = 2 * pi * F;                                     % Frequency vector (rad/s) 
-% [HMag, HPhase, HOmega] = bode(sys, Omega);              % Uses BODE to determine the real TF
-% HMag   = squeeze(HMag);                                 % BODE outputs a 3D matrix, this collapses it
-% HPhase = squeeze(HPhase); 
 
 % Fitting 2nd Order system to the estimated frequency response using tfestimate
 % Ts = mean(diff(t));                                      % Get the sampling time
 sysfun = @(X) costfunc(X,EstMag,EstPhase,EstOmega,Ts); % Define a cost function, putting estimated frequency with noise as a target
-lb = [0 0 0];                                            % Lower bound of the constriant, does not permit negative coefficients (not physically possible)
+lb = [0 0];                                            % Lower bound of the constriant, does not permit negative coefficients (not physically possible)
 ub =[];                                                  % Upper bound of the constriant    
 
-x0 =[2.636e-14+0.01*rand() 0.0001186+0.01*rand() 0.0233+0.01*rand()];                                         % Initial value for the optimizer, random numbers in this case
+x0 =[2.636e-14+0.01*rand() 0.0001186+0.01*rand() 0.0233+0.01*rand()];
+x0 =[rand() rand() rand()];
+x0 =[0.01 0.01];% Initial value for the optimizer, random numbers in this case
 options = optimoptions('fmincon','OptimalityTolerance',1e-15);      % Setting an agressive torelance to give better fitting
 [result, fval] = fmincon(sysfun,x0,[],[],[],[],lb,ub,[],options);   % Result is the estimated parmeters. compare with true parameters
 
-Hbk= tf(1,[result(1) result(2) result(3)]);              % Optimized 2nd order system
+Hbk= tf(1,[result(1) result(2)]);              % Optimized 1st order system
+J = result(1); B = result(2);
 
+[FitHMag, FitHPhase, FitOmega] = bode(Hbk, Omega);       % Uses BODE to determine the real TF
+FitMag  = squeeze(FitHMag);                                 % BODE outputs a 3D matrix, this collapses it
+FitPhase = squeeze(FitHPhase); 
 
-[EstHMag2nd, EstHPhase2nd, EstOmega2nd] = bode(Hbk, Omega);       % Uses BODE to determine the real TF
-EstMag2nd  = squeeze(EstHMag2nd);                                 % BODE outputs a 3D matrix, this collapses it
-EstPhase2nd = squeeze(EstHPhase2nd); 
+[outputsim, t] = lsim(Hbk,input,t_exp.SamplingInstants);
+outputsim = -outputsim;
+fit_vaf = vaf(output, outputsim);
 
+Est = {EstOmega, EstMag, EstPhase};
+Fit = {FitOmega, FitMag, FitPhase};
 
+make_plot = false;
+if (make_plot)
+    figure                                                    % Plotting in frequency domain
+    %  Magnitude plot on top
+    ax_mag = subplot(3,1,1);
+    sgtitle(sprintf("window = %d, overlap = %d, vaf = %2.4fpc",window,overlap,fit_vaf));
+    semilogx(EstOmega./(2*pi), mag2db(EstMag),'linewidth',1)
+    hold on
+    semilogx(FitOmega./(2*pi), mag2db(FitMag),'linewidth',1)
 
-figure                                                    % Plotting in frequency domain
-%  Magnitude plot on top
-subplot(2,1,1)
-sgtitle(sprintf("window = %d, overlap = %d",window,overlap));
-% semilogx(HOmega, mag2db(HMag), 'linewidth',2)
-% hold on
-semilogx(EstOmega, mag2db(EstMag),'linewidth',1)
-hold on
-semilogx(EstOmega2nd, mag2db(EstMag2nd),'linewidth',1)
+    % xlabel('\omega (rad/s)')
+    xlabel('f (Hz)')
+    ylabel('|H| (dB)')
+    legend('Data', '1st order fit')
+    hold off
 
-xlabel('\omega (rad/s)')
-ylabel('|H| (dB)')
-legend('Data', '2nd order fit')
+    %  Phase plot on bottom
+    ax_phase = subplot(3,1,2);
+    semilogx(EstOmega./(2*pi), EstPhase, 'linewidth',1)
+    hold on
+    semilogx(FitOmega./(2*pi), FitPhase, 'linewidth',1)
+    % xlabel('\omega (rad/s)')
+    xlabel('f (Hz)')
+    ylabel('Phase (^o)')
+    hold off
 
-%  Phase plot on bottom
-subplot(2,1,2)
-% semilogx(HOmega, HPhase, 'linewidth',2)
-% hold on
-semilogx(EstOmega, EstPhase, 'linewidth',1)
-hold on
-semilogx(EstOmega2nd, EstPhase2nd, 'linewidth',1)
-xlabel('\omega (rad/s)')
-ylabel('Phase (^o)')
+    % sys_format = tf(1,[1/wn^2 2*zeta/wn 1]);                % Convert original system to format with 1 in the numerator (the system is identical)
+    % True_system = sys_format                                % Print the true system that generated the data
+    Estimated_system = Hbk                                  % Print the identified system for comparison
 
-% sys_format = tf(1,[1/wn^2 2*zeta/wn 1]);                % Convert original system to format with 1 in the numerator (the system is identical)
-% True_system = sys_format                                % Print the true system that generated the data
-Estimated_system = Hbk                                  % Print the identified system for comparison
-
+    ax_time = subplot(3,1,3);
+    plot(t, output);
+    hold on;
+    plot(t, outputsim);
+    legend('data','fit');
+    hold off;
+end
+end
 
 function [Ts_res, v_exp, q_exp, t_exp] = load_grp_experiment(datafile, Ts_res)
     data_table = readtable(datafile,'PreserveVariableNames',true);
@@ -329,22 +382,33 @@ function [Ts_res, v_exp, q_exp, t_exp] = load_grp_experiment(datafile, Ts_res)
     t_exp = iddata(ts, a1_q, Ts_res);
 end
 
-function [Ts, t_exp] = load_grp_cpp_exp(datafile)
-    data_table = readtable(datafile,'PreserveVariableNames',true,...
-        'CommentStyle',"#",...
-        'Delimiter',',');
-    headers = data_table.Properties.VariableNames;
+function [Ts, t_exp] = load_grp_cpp_exp(datafiles)
+    time_oall = [];
+    a1_v_oall = [];
+    ts_oall = [];
+    t_base = 0;
+    for ii = 1:length(datafiles)
+        datafile = datafiles(ii);
+        data_table = readtable(datafile,'PreserveVariableNames',true,...
+            'Delimiter',',');
+        headers = data_table.Properties.VariableNames;
 
-    time_idx = find(ismember(headers,'time [s]'));
-    a1_v_idx = find(ismember(headers,'a1 velocity [rad/s]'));
-    ts_idx = find(ismember(headers,'trs605-5 torque [Nm]'));
+        time_idx = find(ismember(headers,'time [s]'));
+        a1_v_idx = find(ismember(headers,'a1 velocity [rad/s]'));
+        ts_idx = find(ismember(headers,'trs605-5 torque [Nm]'));
 
-    time = table2array(data_table(1:end, time_idx));
-    a1_v = table2array(data_table(1:end, a1_v_idx));
-    ts = table2array(data_table(1:end, ts_idx));
+        time = table2array(data_table(1:end, time_idx));
+        a1_v = table2array(data_table(1:end, a1_v_idx));
+        ts = table2array(data_table(1:end, ts_idx));
+        
+        time_oall = [time_oall; time+t_base];
+        a1_v_oall = [a1_v_oall; a1_v];
+        ts_oall = [ts_oall; ts];
+        t_base = time_oall(length(time_oall));
+    end
 
     dt = abs(time - circshift(time, 1));
-    Ts = median(dt);
-    
-    t_exp = iddata(a1_v, ts, Ts);
+    Ts = median(dt(1:90)); % accounting for stupid mistake when taking data
+
+    t_exp = iddata(a1_v_oall, ts_oall, Ts);
 end
