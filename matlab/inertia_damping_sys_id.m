@@ -202,6 +202,12 @@ format compact
 
 datafile = "dynamometer-data/dynamometer_test_07_06_2021_15-23-56.csv";
 
+no_gb_datafile = "dynamometer-data/dynamometer_test_21_06_2021_15-54-26.csv";
+gb_datafile = "dynamometer-data/dynamometer_test_21_06_2021_16-22-42.csv";
+
+datafile = no_gb_datafile;
+datafile = gb_datafile;
+
 [Ts, t_exp] = load_grp_cpp_exp(datafile);
 Fs = 1/Ts;
 input = t_exp.InputData;
@@ -210,8 +216,8 @@ output = t_exp.OutputData;
 sprintf("data length = %d",length(input))
 
 % System ID
-window = 1000;                                          % Number of samples to use in window
-overlap = 0;                                            % Number of samples to overlap
+window = 10000;                                          % Number of samples to use in window
+overlap = 4000;                                            % Number of samples to overlap
 
 % [EstHn, EstFn] = tfestimate(inputNew, outputNew,window, overlap, [], Fs);        
 % EstMagn   = abs(EstHn);                                 % Determines magnitude for complex number
@@ -242,7 +248,7 @@ for i = 2:length(EstPhase)
 end
 
 % Creation of actual frequency response
-F = logspace(0, log10(1/Ts), 1000);                               % Creates log space variable
+F = logspace(log10(2*window/length(input)), log10(1/Ts), 1000);                               % Creates log space variable
 Omega = 2 * pi * F;                                     % Frequency vector (rad/s) 
 % [HMag, HPhase, HOmega] = bode(sys, Omega);              % Uses BODE to determine the real TF
 % HMag   = squeeze(HMag);                                 % BODE outputs a 3D matrix, this collapses it
@@ -268,6 +274,7 @@ EstMag2nd  = squeeze(EstHMag2nd);                                 % BODE outputs
 EstPhase2nd = squeeze(EstHPhase2nd); 
 
 [outputsim, t] = lsim(Hbk,input,t_exp.SamplingInstants);
+outputsim = -outputsim;
 fit_vaf = vaf(output, outputsim);
 
 figure                                                    % Plotting in frequency domain
@@ -276,11 +283,12 @@ subplot(3,1,1)
 sgtitle(sprintf("window = %d, overlap = %d, vaf = %2.4fpc",window,overlap,fit_vaf));
 % semilogx(HOmega, mag2db(HMag), 'linewidth',2)
 % hold on
-semilogx(EstOmega, mag2db(EstMag),'linewidth',1)
+semilogx(EstOmega./(2*pi), mag2db(EstMag),'linewidth',1)
 hold on
-semilogx(EstOmega2nd, mag2db(EstMag2nd),'linewidth',1)
+semilogx(EstOmega2nd./(2*pi), mag2db(EstMag2nd),'linewidth',1)
 
-xlabel('\omega (rad/s)')
+% xlabel('\omega (rad/s)')
+xlabel('f (Hz)')
 ylabel('|H| (dB)')
 legend('Data', '1st order fit')
 hold off
@@ -289,10 +297,11 @@ hold off
 subplot(3,1,2)
 % semilogx(HOmega, HPhase, 'linewidth',2)
 % hold on
-semilogx(EstOmega, EstPhase, 'linewidth',1)
+semilogx(EstOmega./(2*pi), EstPhase, 'linewidth',1)
 hold on
-semilogx(EstOmega2nd, EstPhase2nd, 'linewidth',1)
-xlabel('\omega (rad/s)')
+semilogx(EstOmega2nd./(2*pi), EstPhase2nd, 'linewidth',1)
+% xlabel('\omega (rad/s)')
+xlabel('f (Hz)')
 ylabel('Phase (^o)')
 hold off
 
@@ -356,7 +365,7 @@ function [Ts, t_exp] = load_grp_cpp_exp(datafile)
     ts = table2array(data_table(1:end, ts_idx));
 
     dt = abs(time - circshift(time, 1));
-    Ts = median(dt);
+    Ts = median(dt(1:90)); % accounting for stupid mistake when taking data
     
     t_exp = iddata(a1_v, ts, Ts);
 end
