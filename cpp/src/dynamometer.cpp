@@ -108,8 +108,8 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
   realdist = dist;
 
   std::cout << "restoring calibrations... \n";
-  system("python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '1=1;2=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_1_dyn.log");
-  system("python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '1=1;2=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_2_dyn.log");
+  system("python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '3=1;4=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_1_dyn.log");
+  system("python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '3=1;4=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_2_dyn.log");
 
   fib_.resize(lpf_order_+1);
   fob_.resize(lpf_order_+1);
@@ -149,9 +149,9 @@ std::map<int, int> Dynamometer::servo_bus_map() const {
 /// queries.
 void Dynamometer::Initialize(std::vector<MoteusInterface::ServoCommand>* commands) {
   moteus::PositionResolution res;
-  res.position = moteus::Resolution::kInt16;
-  res.velocity = moteus::Resolution::kInt16;
-  res.feedforward_torque = moteus::Resolution::kInt16;
+  res.position = moteus::Resolution::kFloat;
+  res.velocity = moteus::Resolution::kFloat;
+  res.feedforward_torque = moteus::Resolution::kFloat;
   res.kp_scale = moteus::Resolution::kInt16;
   res.kd_scale = moteus::Resolution::kInt16;
   res.maximum_torque = moteus::Resolution::kIgnore;
@@ -159,6 +159,9 @@ void Dynamometer::Initialize(std::vector<MoteusInterface::ServoCommand>* command
   res.watchdog_timeout = moteus::Resolution::kIgnore;
   for (auto& cmd : *commands) {
     cmd.resolution = res;
+    cmd.query.velocity = moteus::Resolution::kFloat;
+    cmd.query.position = moteus::Resolution::kFloat;
+    cmd.query.torque = moteus::Resolution::kFloat;
   }
 }
 
@@ -414,8 +417,8 @@ cxxopts::Options dyn_opts() {
     ("gear2", "gear ratio of actuator 2, as a reduction", cxxopts::value<float>()->default_value("1.0"))
     ("actuator-1-id", "actuator 1 CAN ID", cxxopts::value<uint8_t>()->default_value("1"))
     ("actuator-2-id", "actuator 2 CAN ID", cxxopts::value<uint8_t>()->default_value("2"))
-    ("actuator-1-bus", "actuator 1 CAN bus", cxxopts::value<uint8_t>()->default_value("1"))
-    ("actuator-2-bus", "actuator 2 CAN bus", cxxopts::value<uint8_t>()->default_value("2"))
+    ("actuator-1-bus", "actuator 1 CAN bus", cxxopts::value<uint8_t>()->default_value("3"))
+    ("actuator-2-bus", "actuator 2 CAN bus", cxxopts::value<uint8_t>()->default_value("4"))
     ("main-cpu", "main CPU", cxxopts::value<uint8_t>()->default_value("1"))
     ("can-cpu", "CAN CPU", cxxopts::value<uint8_t>()->default_value("2"))
     ("torquesensor", "declare which torque sensor is being used between [trd605-18| trs605-5]", cxxopts::value<std::string>()->default_value("trs605-5"))
