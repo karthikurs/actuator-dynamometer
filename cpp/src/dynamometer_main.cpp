@@ -283,11 +283,13 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
       uint8_t rpl2_idx = (rpl1_idx == 0) ? 1 : 0;
 
 
-      data_file << std::setw(6) << std::setprecision(4) << (dynamometer->get_program_time()) << ",";
+      data_file << std::setw(10) << std::setprecision(4) << std::fixed
+        << (dynamometer->get_program_time()) << ",";
       if (dynset.testmode == Dynamometer::TestMode::kGRP) {
-        data_file << std::setw(6) << std::setprecision(4)
+        data_file << std::setw(10) << std::setprecision(2) << std::fixed
           << saved_replies.at(rpl1_idx).result.velocity*2*PI/dynset.gear1 << ",";
-        data_file << std::setw(6) << std::setprecision(4) << (dynamometer->get_torque()) << "\n";
+        data_file << std::setw(10) << std::setprecision(2) << std::fixed
+          << (dynamometer->get_torque()) << "\n";
       }
       else {
         c1_str = stringify_moteus_reply(saved_replies.at(rpl1_idx));
