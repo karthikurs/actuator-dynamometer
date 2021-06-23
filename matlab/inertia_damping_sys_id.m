@@ -199,8 +199,18 @@ ex8_no_gb_datafiles = ["dynamometer-data/dynamometer_test_23_06_2021_12-34-39.cs
     "dynamometer-data/dynamometer_test_23_06_2021_12-47-28.csv",...
     "dynamometer-data/dynamometer_test_23_06_2021_13-48-01.csv",...
     "dynamometer-data/dynamometer_test_23_06_2021_13-52-08.csv"];
-ex8_gb_datafiles = ["dynamometer-data/dynamometer_test_23_06_2021_15-34-43.csv"];
+ex8_gb_datafiles = ["dynamometer-data/dynamometer_test_23_06_2021_16-24-13.csv",...
+    "dynamometer-data/dynamometer_test_23_06_2021_16-25-28.csv",...
+    "dynamometer-data/dynamometer_test_23_06_2021_16-30-52.csv",...
+    "dynamometer-data/dynamometer_test_23_06_2021_16-31-45.csv",...
+    "dynamometer-data/dynamometer_test_23_06_2021_16-32-30.csv"];
 
+% ex8_gb_datafiles = [ex8_gb_datafiles, "dynamometer-data/dynamometer_test_23_06_2021_15-34-43.csv"];
+% figure
+% subplot(1,2,1)
+% [J_ex8_nogb, B_ex8_nogb] = process_and_plot(ex8_no_gb_datafiles, "EX8 No GB");
+% subplot(1,2,2)
+% [J_ex8_gb, B_ex8_gb] = process_and_plot(ex8_gb_datafiles, "EX8 6-1 GB");
 
 % [Ts, t_exp] = load_grp_cpp_exp(datafile);
 figure 
