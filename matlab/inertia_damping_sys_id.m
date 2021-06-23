@@ -187,12 +187,19 @@ shaft_datafiles = ["dynamometer-data/dynamometer_test_22_06_2021_12-27-48.csv",.
     "dynamometer-data/dynamometer_test_22_06_2021_12-36-41.csv",...
     "dynamometer-data/dynamometer_test_22_06_2021_12-38-46.csv",...
     "dynamometer-data/dynamometer_test_22_06_2021_12-40-56.csv"];
-no_gb_datafiles = ["dynamometer-data/dynamometer_test_21_06_2021_15-54-26.csv",...
+ri50_no_gb_datafiles = ["dynamometer-data/dynamometer_test_21_06_2021_15-54-26.csv",...
     "dynamometer-data/dynamometer_test_21_06_2021_16-08-24.csv"];
-gb_datafiles = ["dynamometer-data/dynamometer_test_21_06_2021_16-22-42.csv",...
+ri50_gb_datafiles = ["dynamometer-data/dynamometer_test_21_06_2021_16-22-42.csv",...
     "dynamometer-data/dynamometer_test_22_06_2021_11-52-06.csv",...
     "dynamometer-data/dynamometer_test_22_06_2021_11-59-35.csv",...
     "dynamometer-data/dynamometer_test_22_06_2021_12-05-03.csv"];
+
+ex8_no_gb_datafiles = ["dynamometer-data/dynamometer_test_23_06_2021_12-34-39.csv",...
+    "dynamometer-data/dynamometer_test_23_06_2021_12-42-49.csv",...
+    "dynamometer-data/dynamometer_test_23_06_2021_12-47-28.csv",...
+    "dynamometer-data/dynamometer_test_23_06_2021_13-48-01.csv",...
+    "dynamometer-data/dynamometer_test_23_06_2021_13-52-08.csv"];
+ex8_gb_datafiles = ["dynamometer-data/dynamometer_test_23_06_2021_15-34-43.csv"];
 
 
 % [Ts, t_exp] = load_grp_cpp_exp(datafile);
@@ -201,60 +208,39 @@ set(0, 'DefaultTextInterpreter', 'latex');
 set(0, 'DefaultLegendInterpreter', 'latex');
 set(0, 'DefaultAxesTickLabelInterpreter', 'latex');
 
-[Ts, t_exp] = load_grp_cpp_exp(shaft_datafiles);
-[Hbk, Est, Fit, t, output, outputsim, J, B] = id_sys(Ts, t_exp);
-EstOmega = Est{1}; EstMag = Est{2}; EstPhase = Est{3};
-FitOmega = Fit{1}; FitMag = Fit{2}; FitPhase = Fit{3};
-J_shaft = J; B_shaft = B;
-fit_vaf = vaf(output, outputsim);
+subplot(1,5,1)
+[J_shaft, B_shaft] = process_and_plot(shaft_datafiles, "Shaft Hardware");
 
-ax_mag = subplot(1,3,1);
-% sgtitle(sprintf("window = %d, overlap = %d, vaf = %2.4fpc",window,overlap,fit_vaf));
-semilogx(EstOmega./(2*pi), mag2db(EstMag))
-hold on
-semilogx(FitOmega./(2*pi), mag2db(FitMag))
-title(sprintf("Shaft Hardware, vaf = %2.2f\\%%",fit_vaf));
-xlabel('$f$ (Hz)')
-ylabel('Gain (dB)')
-legend('Data', '1st order fit')
-hold off
+subplot(1,5,2)
+[J_ri50_nogb, B_ri50_nogb] = process_and_plot(ri50_no_gb_datafiles, "RI50 No GB");
+subplot(1,5,3)
+[J_ri50_gb, B_ri50_gb] = process_and_plot(ri50_gb_datafiles, "RI50 6-1 GB");
 
-[Ts, t_exp] = load_grp_cpp_exp(no_gb_datafiles);
-[Hbk, Est, Fit, t, output, outputsim, J, B] = id_sys(Ts, t_exp);
-EstOmega = Est{1}; EstMag = Est{2}; EstPhase = Est{3};
-FitOmega = Fit{1}; FitMag = Fit{2}; FitPhase = Fit{3};
-J_no_gb = J; B_no_gb = B;
-fit_vaf = vaf(output, outputsim);
+subplot(1,5,4)
+[J_ex8_nogb, B_ex8_nogb] = process_and_plot(ex8_no_gb_datafiles, "EX8 No GB");
+subplot(1,5,5)
+[J_ex8_gb, B_ex8_gb] = process_and_plot(ex8_gb_datafiles, "EX8 6-1 GB");
 
-ax_mag = subplot(1,3,2);
-semilogx(EstOmega./(2*pi), mag2db(EstMag))
-hold on
-semilogx(FitOmega./(2*pi), mag2db(FitMag))
-title(sprintf("RI50 No Gearbox, vaf = %2.2f\\%%",fit_vaf));
-xlabel('$f$ (Hz)')
-ylabel('Gain (dB)')
-legend('Data', '1st order fit')
-hold off
-
-[Ts, t_exp] = load_grp_cpp_exp(gb_datafiles);
-[Hbk, Est, Fit, t, output, outputsim, J, B] = id_sys(Ts, t_exp);
-EstOmega = Est{1}; EstMag = Est{2}; EstPhase = Est{3};
-FitOmega = Fit{1}; FitMag = Fit{2}; FitPhase = Fit{3};
-J_gb = J; B_gb = B;
-fit_vaf = vaf(output, outputsim);
-
-ax_mag = subplot(1,3,3);
-semilogx(EstOmega./(2*pi), mag2db(EstMag))
-hold on
-semilogx(FitOmega./(2*pi), mag2db(FitMag))
-title(sprintf("RI50 6:1 Gearbox, vaf = %2.2f\\%%",fit_vaf));
-xlabel('$f$ (Hz)')
-ylabel('Gain (dB)')
-legend('Data', '1st order fit')
-hold off
-
-sgt = sgtitle(sprintf("Rotor Inertia = %.3e kg m$^2$; Actuator Inertia = %.3e kg m$^2$",J_no_gb-J_shaft, J_gb-J_shaft));
+sgt = sgtitle(sprintf("RI50: $J_{rotor}$ = %.3e kgm$^2$; $J_a$ = %.3e kgm$^2$, EX8: $J_{rotor}$ = %.3e kgm$^2$; $J_a$ = %.3e kgm$^2$",...
+    J_ri50_nogb-J_shaft, J_ri50_gb-J_shaft, J_ex8_nogb-J_shaft, J_ex8_gb-J_shaft));
 sgt.Interpreter = 'latex';
+
+function [J, B] = process_and_plot(datafiles, title_str)
+    [Ts, t_exp] = load_grp_cpp_exp(datafiles);
+    [Hbk, Est, Fit, t, output, outputsim, J, B] = id_sys(Ts, t_exp);
+    EstOmega = Est{1}; EstMag = Est{2}; EstPhase = Est{3};
+    FitOmega = Fit{1}; FitMag = Fit{2}; FitPhase = Fit{3};
+    fit_vaf = vaf(output, outputsim);
+    
+    semilogx(EstOmega./(2*pi), mag2db(EstMag))
+    hold on
+    semilogx(FitOmega./(2*pi), mag2db(FitMag))
+    title(sprintf("%s, vaf = %2.2f\\%%",title_str, fit_vaf));
+    xlabel('$f$ (Hz)')
+    ylabel('Gain (dB)')
+    legend('Data', '1st order fit')
+    hold off
+end
 
 function [Hbk, Est, Fit, t, output, outputsim, J, B] = id_sys(Ts, t_exp)
 
