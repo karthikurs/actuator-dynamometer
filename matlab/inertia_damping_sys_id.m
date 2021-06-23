@@ -213,7 +213,7 @@ ax_mag = subplot(1,3,1);
 semilogx(EstOmega./(2*pi), mag2db(EstMag))
 hold on
 semilogx(FitOmega./(2*pi), mag2db(FitMag))
-title(sprintf("Shaft Hardware, vaf = %2.4f%",fit_vaf));
+title(sprintf("Shaft Hardware, vaf = %2.2f\\%%",fit_vaf));
 xlabel('$f$ (Hz)')
 ylabel('Gain (dB)')
 legend('Data', '1st order fit')
@@ -230,7 +230,7 @@ ax_mag = subplot(1,3,2);
 semilogx(EstOmega./(2*pi), mag2db(EstMag))
 hold on
 semilogx(FitOmega./(2*pi), mag2db(FitMag))
-title(sprintf("RI50 No Gearbox, vaf = %2.4f%",fit_vaf));
+title(sprintf("RI50 No Gearbox, vaf = %2.2f\\%%",fit_vaf));
 xlabel('$f$ (Hz)')
 ylabel('Gain (dB)')
 legend('Data', '1st order fit')
@@ -247,12 +247,14 @@ ax_mag = subplot(1,3,3);
 semilogx(EstOmega./(2*pi), mag2db(EstMag))
 hold on
 semilogx(FitOmega./(2*pi), mag2db(FitMag))
-title(sprintf("RI50 6:1 Gearbox, vaf = %2.4f%",fit_vaf));
+title(sprintf("RI50 6:1 Gearbox, vaf = %2.2f\\%%",fit_vaf));
 xlabel('$f$ (Hz)')
 ylabel('Gain (dB)')
 legend('Data', '1st order fit')
 hold off
 
+sgt = sgtitle(sprintf("Rotor Inertia = %.3e kg m$^2$; Actuator Inertia = %.3e kg m$^2$",J_no_gb-J_shaft, J_gb-J_shaft));
+sgt.Interpreter = 'latex';
 
 function [Hbk, Est, Fit, t, output, outputsim, J, B] = id_sys(Ts, t_exp)
 
@@ -263,8 +265,8 @@ output = t_exp.OutputData;
 sprintf("data length = %d",length(input))
 
 % System ID
-window = 10000;                                          % Number of samples to use in window
-overlap = 4000;                                            % Number of samples to overlap
+window = 50000;                                          % Number of samples to use in window
+overlap = 20000;                                            % Number of samples to overlap
 
 [EstH, EstF] = tfestimate(input, output, window, overlap, [], Fs);
 EstMag   = abs(EstH);                                   % Determines magnitude for complex number
@@ -304,49 +306,16 @@ FitMag  = squeeze(FitHMag);                                 % BODE outputs a 3D 
 FitPhase = squeeze(FitHPhase); 
 
 [outputsim, t] = lsim(Hbk,input,t_exp.SamplingInstants);
-outputsim = -outputsim;
-fit_vaf = vaf(output, outputsim);
+% outputsim = -outputsim;
+fit_vaf1 = vaf(output, outputsim);
+fit_vaf2 = vaf(output, -outputsim);
+
+if fit_vaf2 > fit_vaf1
+    outputsim = -outputsim;
+end
 
 Est = {EstOmega, EstMag, EstPhase};
 Fit = {FitOmega, FitMag, FitPhase};
-
-make_plot = false;
-if (make_plot)
-    figure                                                    % Plotting in frequency domain
-    %  Magnitude plot on top
-    ax_mag = subplot(3,1,1);
-    sgtitle(sprintf("window = %d, overlap = %d, vaf = %2.4fpc",window,overlap,fit_vaf));
-    semilogx(EstOmega./(2*pi), mag2db(EstMag),'linewidth',1)
-    hold on
-    semilogx(FitOmega./(2*pi), mag2db(FitMag),'linewidth',1)
-
-    % xlabel('\omega (rad/s)')
-    xlabel('f (Hz)')
-    ylabel('|H| (dB)')
-    legend('Data', '1st order fit')
-    hold off
-
-    %  Phase plot on bottom
-    ax_phase = subplot(3,1,2);
-    semilogx(EstOmega./(2*pi), EstPhase, 'linewidth',1)
-    hold on
-    semilogx(FitOmega./(2*pi), FitPhase, 'linewidth',1)
-    % xlabel('\omega (rad/s)')
-    xlabel('f (Hz)')
-    ylabel('Phase (^o)')
-    hold off
-
-    % sys_format = tf(1,[1/wn^2 2*zeta/wn 1]);                % Convert original system to format with 1 in the numerator (the system is identical)
-    % True_system = sys_format                                % Print the true system that generated the data
-    Estimated_system = Hbk                                  % Print the identified system for comparison
-
-    ax_time = subplot(3,1,3);
-    plot(t, output);
-    hold on;
-    plot(t, outputsim);
-    legend('data','fit');
-    hold off;
-end
 end
 
 function [Ts_res, v_exp, q_exp, t_exp] = load_grp_experiment(datafile, Ts_res)
