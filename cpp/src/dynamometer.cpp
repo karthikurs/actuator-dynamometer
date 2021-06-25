@@ -53,7 +53,6 @@
 
 #include "libFilter/filters.h"
 #include "iir/iir.h"
-#include "nlohmann/json.hpp"
 
 using namespace mjbots;
 
@@ -99,10 +98,16 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
   
   std::cout << "loading configs... \n";
   std::ifstream grp_if("configs/grp.json");
-  json grp_j; grp_if >> grp_j;
+  grp_if >> grp_j;
   lpf_order_ = grp_j["butterworth_order"];
   lpf_fc_ = grp_j["cutoff_frequency_Hz"];
   grp_max_ampl = grp_j["torque_amplitude_Nm"];
+  dynset_.grp_sampling_period_us = static_cast<int64_t>(
+    (1e6)/float(grp_j["random_sampling_frequency_Hz"]));
+
+  
+  dynset_.status_period_us = static_cast<int64_t>(
+    (1e6)/10);
 
   std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
   realdist = dist;
@@ -256,6 +261,7 @@ void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand
       cmda.feedforward_torque = rand_cmd;
       
       cmdb.kp_scale = 0; cmdb.kd_scale = 0;
+      cmdb.feedforward_torque = 0;
       break;
       }
     case TestMode::kTorqueVelSweep: {
@@ -413,6 +419,7 @@ cxxopts::Options dyn_opts() {
 
   options.add_options()
     ("c,comment", "enter comment string to be included in output csv.", cxxopts::value<std::string>())
+    ("p,path", "path to output csv.", cxxopts::value<std::string>()->default_value("/home/pi/embir-modular-leg/dynamometer-data/"))
     ("gear1", "gear ratio of actuator 1, as a reduction", cxxopts::value<float>()->default_value("1.0"))
     ("gear2", "gear ratio of actuator 2, as a reduction", cxxopts::value<float>()->default_value("1.0"))
     ("actuator-1-id", "actuator 1 CAN ID", cxxopts::value<uint8_t>()->default_value("1"))

@@ -18,6 +18,8 @@
 #include "sensors/Adafruit_INA260.h"
 
 #include "cxxopts/cxxopts.hpp"
+#include "nlohmann/json.hpp"
+
 
 void LockMemory();
 
@@ -75,6 +77,9 @@ class Dynamometer {
     TorqueSensor tqsen;
 
     cxxopts::ParseResult dyn_opts;
+
+    uint32_t grp_sampling_period_us;
+    uint32_t status_period_us;
   };
 
 
@@ -126,6 +131,7 @@ class Dynamometer {
   inline float get_torque() {return sd_.torque_Nm;}
 
   DynamometerSettings dynset_;
+  nlohmann::json grp_j;
  private:
   char cstr_buffer[128];
   Adafruit_ADS1015 ads_;

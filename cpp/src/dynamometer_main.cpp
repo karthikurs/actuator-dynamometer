@@ -150,8 +150,8 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
   auto next_cycle = std::chrono::steady_clock::now() + period;
 
   // ** TERMINAL STATUS UPDATE PERIOD **
-  const auto status_period = std::chrono::milliseconds(100);
-  const auto grp_sampling_period = std::chrono::milliseconds(25);
+  const auto status_period = std::chrono::microseconds(dynset.status_period_us);
+  const auto grp_sampling_period = std::chrono::microseconds(dynset.grp_sampling_period_us);
   auto next_status = next_cycle + status_period;
   auto next_grp = next_cycle + grp_sampling_period;
   uint64_t cycle_count = 0;
@@ -180,7 +180,6 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
   }
 
   // * MAIN LOOP *
-  // We will run at a fixed cycle time.
   while (!interrupted && dynamometer->get_program_time() < dynset.duration_s) {
     cycle_count++;
     margin_cycles++;
@@ -188,28 +187,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
     {
       const auto now = std::chrono::steady_clock::now();
       if (now > next_status) {
-        // NOTE: iomanip is not a recommended pattern.  We use it here
-        // simply to not require any external dependencies, like 'fmt'.
-        const auto volts = MinMaxVoltage(saved_replies);
-        const std::string modes = [&]() {
-          std::ostringstream result;
-          result.precision(4);
-          result << std::fixed;
-          for (const auto& item : saved_replies) {
-            result << item.id << "/"
-                   << static_cast<int>(item.result.mode) << "/"
-                   << item.result.position << " ";
-          }
-          return result.str();
-        }();
-        // std::cout << std::setprecision(6) << std::fixed
-        //           << "Cycles " << cycle_count
-        //           << "  margin: " << (total_margin / margin_cycles)
-        //           << std::setprecision(1)
-        //           << "  volts: " << volts.first << "/" << volts.second
-        //           << "  modes: " << modes
-        //           << "   \r";
-        // std::cout.flush();
+        // Insert code here that you want to run at a lower frequency
         next_status += status_period;
         total_margin = 0;
         margin_cycles = 0;
@@ -326,7 +304,8 @@ int main(int argc, char** argv) {
   filename_stream << std::put_time(std::localtime(&nowc), "dynamometer_test_%d_%m_%Y_%H-%M-%S.csv");
   std::string filename = filename_stream.str();
 
-  std::ofstream data_file("/home/pi/embir-modular-leg/dynamometer-data/"+filename);
+  // std::ofstream data_file("/home/pi/embir-modular-leg/dynamometer-data/"+filename);
+  std::ofstream data_file(opts["path"].as<std::string>()+filename);
 
   std::vector<std::string> arg_list(argv, argv+argc);
   data_file << "# ";
@@ -343,14 +322,27 @@ int main(int argc, char** argv) {
   }
   bcm2835_i2c_begin();
 
-
-
   LockMemory();
 
   // Lock memory for the whole process.
   Dynamometer dynamometer(opts, ads, ina1, ina2);
   // for convenience
   Dynamometer::DynamometerSettings& dynset = dynamometer.dynset_;
+  data_file << "# \n# user comment: " << dynset.dyn_opts["comment"].as<std::string>() << "\n# \n";
+  data_file << "# test mode: " << dynset.dyn_opts["test-mode"].as<std::string>() << "\n";
+  data_file << "# period s: " << 1.0/dynset.dyn_opts["frequency"].as<float>() << "\n";
+  data_file << "# duration s: " << dynset.dyn_opts["duration"].as<float>() << "\n";
+  data_file << "# gear 1: " << dynset.dyn_opts["gear1"].as<float>() << "\n";
+  data_file << "# gear 2: " << dynset.dyn_opts["gear2"].as<float>() << "\n";
+  data_file << "# actuator 1 id: " << (int)(dynset.dyn_opts["actuator-1-id"].as<uint8_t>()) << "\n";
+  data_file << "# actuator 2 id: " << (int)(dynset.dyn_opts["actuator-2-id"].as<uint8_t>()) << "\n";
+  data_file << "# actuator 1 bus: " << (int)(dynset.dyn_opts["actuator-1-bus"].as<uint8_t>()) << "\n";
+  data_file << "# actuator 2 bus: " << (int)(dynset.dyn_opts["actuator-2-bus"].as<uint8_t>()) << "\n";
+  data_file << "# torque sensor: " << dynset.dyn_opts["torquesensor"].as<std::string>() << "\n";
+  data_file << "# main cpu: " << (int)(dynset.dyn_opts["main-cpu"].as<uint8_t>()) << "\n";
+  data_file << "# can cpu: " << (int)(dynset.dyn_opts["can-cpu"].as<uint8_t>()) << "\n# \n";
+  if (dynset.testmode == Dynamometer::TestMode::kGRP)
+    data_file << "# grp.json:\n#     " << dynamometer.grp_j << std::endl;
 
   ConfigureRealtime(dynset.main_cpu);
   ConfigureRealtime(dynset.can_cpu);

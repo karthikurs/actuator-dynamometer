@@ -58,6 +58,7 @@
     "unordered_set": "cpp",
     "regex": "cpp",
     "forward_list": "cpp",
-    "valarray": "cpp"
+    "valarray": "cpp",
+    "csignal": "cpp"
   }
 }
