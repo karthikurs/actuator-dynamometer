@@ -218,21 +218,21 @@ set(0, 'DefaultTextInterpreter', 'latex');
 set(0, 'DefaultLegendInterpreter', 'latex');
 set(0, 'DefaultAxesTickLabelInterpreter', 'latex');
 
-subplot(1,5,1)
+subplot(1,4,1)
 [J_shaft, B_shaft] = process_and_plot(shaft_datafiles, "Shaft Hardware");
 
-subplot(1,5,2)
+subplot(1,4,2)
 [J_ri50_nogb, B_ri50_nogb] = process_and_plot(ri50_no_gb_datafiles, "RI50 No GB");
-subplot(1,5,3)
+subplot(1,4,3)
 [J_ri50_gb, B_ri50_gb] = process_and_plot(ri50_gb_datafiles, "RI50 6-1 GB");
 
-subplot(1,5,4)
+subplot(1,4,4)
 [J_ex8_nogb, B_ex8_nogb] = process_and_plot(ex8_no_gb_datafiles, "EX8 No GB");
-subplot(1,5,5)
-[J_ex8_gb, B_ex8_gb] = process_and_plot(ex8_gb_datafiles, "EX8 6-1 GB");
+% subplot(1,5,5)
+% [J_ex8_gb, B_ex8_gb] = process_and_plot(ex8_gb_datafiles, "EX8 6-1 GB");
 
-sgt = sgtitle(sprintf("RI50: $J_{rotor}$ = %.3e kgm$^2$; $J_a$ = %.3e kgm$^2$, EX8: $J_{rotor}$ = %.3e kgm$^2$; $J_a$ = %.3e kgm$^2$",...
-    J_ri50_nogb-J_shaft, J_ri50_gb-J_shaft, J_ex8_nogb-J_shaft, J_ex8_gb-J_shaft));
+sgt = sgtitle(sprintf("RI50: $J_{rotor}$ = %.3e kgm$^2$; $J_a$ = %.3e kgm$^2$, EX8: $J_{rotor}$ = %.3e kgm$^2$",...
+    J_ri50_nogb-J_shaft, J_ri50_gb-J_shaft, J_ex8_nogb-J_shaft));
 sgt.Interpreter = 'latex';
 
 function [J, B] = process_and_plot(datafiles, title_str)

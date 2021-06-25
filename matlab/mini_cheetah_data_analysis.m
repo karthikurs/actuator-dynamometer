@@ -1,9 +1,26 @@
+%% Load Data
+
+logs = ["lcmlog-2021-02-21-2-powerfail",
+    "lcmlog-2021-02-21-6-difficult-slippery",
+    "lcmlog-2021-02-21-1-lcmfail",
+    "lcmlog-2021-02-21-5-short",
+    "lcmlog-2021-02-21-4-rightcircle",
+    "lcmlog-2021-02-21-3-leftcircle"];
+
+data_container = cell(length(logs),1);
+for ii = 1:length(logs)
+    logs(ii) = "mini-cheetah-logs/" + logs(ii) + ".mat";
+    S = load(logs(ii));
+    data_container{ii,1} = S;
+end
+
 %% Mini Cheetah Analysis
 
 figure;
 hold on;
 m = 1;
 n = 12;
+
 
 for idx = m:n
     ii = idx - m + 1;
@@ -26,3 +43,13 @@ for idx = m:n
 end
 sgtitle("MIT Mini Cheetah Actuator Data");
 hold off
+
+%% 
+
+rms = [];
+
+for ii = 1:6
+    for jj = 1:12
+        rms = [rms, sqrt(mean(data_container{ii,1}.leg_control_data.tau_est(:,jj).^2))/.6];
+    end
+end
