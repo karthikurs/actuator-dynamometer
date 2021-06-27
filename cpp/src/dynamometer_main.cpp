@@ -96,11 +96,6 @@ std::string stringify_actuator_headers(uint8_t id) {
 }
 
 void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
-  
-  // if (dynset.help) {
-  //   DisplayUsage();
-  //   return;
-  // }
 
   // for convenience
   Dynamometer::DynamometerSettings& dynset = dynamometer->dynset_;
@@ -328,21 +323,33 @@ int main(int argc, char** argv) {
   Dynamometer dynamometer(opts, ads, ina1, ina2);
   // for convenience
   Dynamometer::DynamometerSettings& dynset = dynamometer.dynset_;
-  data_file << "# \n# user comment: " << dynset.dyn_opts["comment"].as<std::string>() << "\n# \n";
-  data_file << "# test mode: " << dynset.dyn_opts["test-mode"].as<std::string>() << "\n";
-  data_file << "# period s: " << 1.0/dynset.dyn_opts["frequency"].as<float>() << "\n";
-  data_file << "# duration s: " << dynset.dyn_opts["duration"].as<float>() << "\n";
-  data_file << "# gear 1: " << dynset.dyn_opts["gear1"].as<float>() << "\n";
-  data_file << "# gear 2: " << dynset.dyn_opts["gear2"].as<float>() << "\n";
-  data_file << "# actuator 1 id: " << (int)(dynset.dyn_opts["actuator-1-id"].as<uint8_t>()) << "\n";
-  data_file << "# actuator 2 id: " << (int)(dynset.dyn_opts["actuator-2-id"].as<uint8_t>()) << "\n";
-  data_file << "# actuator 1 bus: " << (int)(dynset.dyn_opts["actuator-1-bus"].as<uint8_t>()) << "\n";
-  data_file << "# actuator 2 bus: " << (int)(dynset.dyn_opts["actuator-2-bus"].as<uint8_t>()) << "\n";
-  data_file << "# torque sensor: " << dynset.dyn_opts["torquesensor"].as<std::string>() << "\n";
-  data_file << "# main cpu: " << (int)(dynset.dyn_opts["main-cpu"].as<uint8_t>()) << "\n";
-  data_file << "# can cpu: " << (int)(dynset.dyn_opts["can-cpu"].as<uint8_t>()) << "\n# \n";
+  if (dynset.testmode == Dynamometer::TestMode::kDurability) {
+    // Load mini cheetah test file.
+    auto replay_file = opts["replay-file"].as<std::string>();
+    if (replay_file == "") {
+      std::cerr << "No replay file specified! Exiting..." << std::endl;
+      return 1;
+    }
+    
+  }
+  data_file << "# \n# user comment: " << opts["comment"].as<std::string>() << "\n# \n";
+  data_file << "# test mode: " << opts["test-mode"].as<std::string>() << "\n";
+  data_file << "# period s: " << 1.0/opts["frequency"].as<float>() << "\n";
+  data_file << "# duration s: " << opts["duration"].as<float>() << "\n";
+  data_file << "# gear 1: " << opts["gear1"].as<float>() << "\n";
+  data_file << "# gear 2: " << opts["gear2"].as<float>() << "\n";
+  data_file << "# actuator 1 id: " << (int)(opts["actuator-1-id"].as<uint8_t>()) << "\n";
+  data_file << "# actuator 2 id: " << (int)(opts["actuator-2-id"].as<uint8_t>()) << "\n";
+  data_file << "# actuator 1 bus: " << (int)(opts["actuator-1-bus"].as<uint8_t>()) << "\n";
+  data_file << "# actuator 2 bus: " << (int)(opts["actuator-2-bus"].as<uint8_t>()) << "\n";
+  data_file << "# torque sensor: " << opts["torquesensor"].as<std::string>() << "\n";
+  data_file << "# main cpu: " << (int)(opts["main-cpu"].as<uint8_t>()) << "\n";
+  data_file << "# can cpu: " << (int)(opts["can-cpu"].as<uint8_t>()) << "\n# \n";
   if (dynset.testmode == Dynamometer::TestMode::kGRP)
     data_file << "# grp.json:\n#     " << dynamometer.grp_j << std::endl;
+  if (dynset.testmode == Dynamometer::TestMode::kDurability)
+    data_file << "# replay file:\n#     " << opts["replay-file"].as<std::string>() << std::endl;
+  
 
   ConfigureRealtime(dynset.main_cpu);
   ConfigureRealtime(dynset.can_cpu);

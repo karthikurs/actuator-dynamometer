@@ -42,6 +42,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cmath>
 
 #include "mjbots/moteus/moteus_protocol.h"
 #include "mjbots/moteus/pi3hat_moteus_interface.h"
@@ -53,6 +54,8 @@
 
 #include "libFilter/filters.h"
 #include "iir/iir.h"
+
+#include "rapidcsv/rapidcsv.h"
 
 using namespace mjbots;
 
@@ -225,6 +228,68 @@ void Dynamometer::swap_actuators() {
   std::swap(actuator_a_id, actuator_b_id);
 }
 
+void Dynamometer::load_replay_data(std::string file) {
+  rapidcsv::Document doc(file);
+  replay_vel = doc.GetColumn<float>("velocity [rad/s]");
+  replay_trq = doc.GetColumn<float>("torque [Nm]");
+}
+
+void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
+  mjbots::moteus::PositionCommand &cmdb) {
+  auto fsm_now = std::chrono::steady_clock::now();
+  switch (dts) {
+    case DurabilityTestState::kIdle: {
+      cmda.kp_scale = 0; cmda.kd_scale = 0;
+      cmda.feedforward_torque = 0;
+      cmdb.kp_scale = 0; cmdb.kd_scale = 0;
+      cmdb.feedforward_torque = 0;
+      break;
+      }
+    case DurabilityTestState::kFollow:{
+      // step index
+      // get new torque and vel values
+      // assign them into commands
+      float vel = dynset_.replay_vel_scale * replay_vel[replay_idx];
+      float trq = dynset_.replay_trq_scale * replay_trq[replay_idx];
+      
+      cmda.kp_scale = 0; cmda.kd_scale = 0;
+      cmda.feedforward_torque = trq;
+      
+      cmdb.kp_scale = 1; cmdb.kd_scale = 1;
+      cmdb.velocity = -vel;
+      cmdb.feedforward_torque = trq;
+
+      break;
+      }
+    case DurabilityTestState::kDurabilityGRP:{
+      if (fsm_now > fsm_timer_end) {
+        start_fsm_timer(15);
+        dts = DurabilityTestState::kIdle;
+      }
+      float rand_cmd = filtered_random();
+      
+      cmda.kp_scale = 0; cmda.kd_scale = 0;
+      cmda.feedforward_torque = rand_cmd;
+      
+      cmdb.kp_scale = 0; cmdb.kd_scale = 0;
+      cmdb.feedforward_torque = 0;
+      break;}
+    case DurabilityTestState::kDurabilityTorqueVelSweep:
+      if (fsm_now > fsm_timer_end) {
+        start_fsm_timer(15);
+        dts = DurabilityTestState::kIdle;
+      }
+      break;
+    case DurabilityTestState::kNone: {
+      cmda.kp_scale = 0; cmda.kd_scale = 0;
+      cmda.feedforward_torque = 0;
+      cmdb.kp_scale = 0; cmdb.kd_scale = 0;
+      cmdb.feedforward_torque = 0;
+      break;
+      }
+  }
+}
+
 void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand &cmda, mjbots::moteus::PositionCommand &cmdb) {
   cmda.position = 0;
   cmda.velocity = 0;
@@ -240,22 +305,7 @@ void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand
     case TestMode::kDirectDamping:
       break;
     case TestMode::kGRP: {
-      
-      float rand_cmd = random_sample;
-
-      // rotate buffers one element to the right to put new data in
-      std::rotate(fib_.rbegin(), fib_.rbegin()+1, fib_.rend());
-      std::rotate(fob_.rbegin(), fob_.rbegin()+1, fob_.rend());
-      fib_[0] = rand_cmd;
-      fob_[0] = 0; // this term should cancel below 
-      rand_cmd = 0;
-      for (size_t ii = 0; ii < lpf_order_+1; ++ii) {
-        rand_cmd += fib_[ii]*lpf_ccof_[ii]*lpf_sf_ - fob_[ii]*lpf_dcof_[ii];
-      }
-      fob_[0] = rand_cmd;
-      
-      rand_cmd = (rand_cmd > grp_max_ampl) ? grp_max_ampl : rand_cmd;
-      rand_cmd = (rand_cmd < -grp_max_ampl) ? -grp_max_ampl : rand_cmd;
+      float rand_cmd = filtered_random();
       
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.feedforward_torque = rand_cmd;
@@ -271,10 +321,16 @@ void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand
       cmdb.velocity = nan("");
       break;
       }
+    case TestMode::kDurability: {
+      break;
+      }
     case TestMode::kManual:
       break;
-    case TestMode::kNone:
+    case TestMode::kNone: {
+      cmda.kp_scale = 0; cmda.kd_scale = 0;
+      cmdb.kp_scale = 0; cmdb.kd_scale = 0;
       break;
+      }
   }
   // sample sensors and store data
   sample_sensors();
@@ -285,29 +341,72 @@ void Dynamometer::sample_random() {
   random_sample = realdist(gen);
 }
 
-void Dynamometer::sample_sensors() {
-  ads_.prime_i2c();
-  uint16_t adc = ads_.readADC_SingleEnded(0);
-  float torque_volts = ads_.computeVolts(adc);
+float Dynamometer::filtered_random() {
+  float rand_cmd = random_sample;
 
+  // rotate buffers one element to the right to put new data in
+  std::rotate(fib_.rbegin(), fib_.rbegin()+1, fib_.rend());
+  std::rotate(fob_.rbegin(), fob_.rbegin()+1, fob_.rend());
+  fib_[0] = rand_cmd;
+  fob_[0] = 0; // this term should cancel below 
+  rand_cmd = 0;
+  for (size_t ii = 0; ii < lpf_order_+1; ++ii) {
+    rand_cmd += fib_[ii]*lpf_ccof_[ii]*lpf_sf_ - fob_[ii]*lpf_dcof_[ii];
+  }
+  fob_[0] = rand_cmd;
+  
+  rand_cmd = (rand_cmd > grp_max_ampl) ? grp_max_ampl : rand_cmd;
+  rand_cmd = (rand_cmd < -grp_max_ampl) ? -grp_max_ampl : rand_cmd;
+
+  return rand_cmd;
+}
+
+void Dynamometer::sample_sensors() {
   // TODO: Add temp read and calc
+  sd_.torque_Nm = 0;
   sd_.temp1_C = 0;
   sd_.temp2_C = 0;
 
-  float tqsen_gain = (dynset_.tqsen==TorqueSensor::kTRD605_18) ? 18.0/50 : 5.0/5.0;
-  sd_.torque_Nm = (torque_volts - 5.0/3.0) * 3.0;
+  sd_.ina1_voltage_V = 0;
+  sd_.ina1_current_A = 0;
+  sd_.ina1_power_W = 0;
 
-  if (dynset_.testmode == TestMode::kGRP) {
+  sd_.ina2_voltage_V = 0;
+  sd_.ina2_current_A = 0;
+  sd_.ina2_power_W = 0;
+  
+  auto testmode = dynset_.testmode;
+
+  // conditions for reading torque sensor
+  if (testmode != TestMode::kDurability) {
     // run faster in GRP mode
-    sd_.ina1_voltage_V = 0;
-    sd_.ina1_current_A = 0;
-    sd_.ina1_power_W = 0;
-
-    sd_.ina2_voltage_V = 0;
-    sd_.ina2_current_A = 0;
-    sd_.ina2_power_W = 0;
+    ads_.prime_i2c();
+    uint16_t adc = ads_.readADC_SingleEnded(0);
+    float torque_volts = ads_.computeVolts(adc);
+    float tqsen_gain = (dynset_.tqsen==TorqueSensor::kTRD605_18) ? 18.0/50 : 5.0/5.0;
+    sd_.torque_Nm = (torque_volts - 5.0/3.0) * 3.0;
   }
-  else {
+  // conditions for temp sensors
+  if (testmode != TestMode::kGRP) {
+    float R0 = 100000;
+    float T0 = 25;
+    float Rf = 100000;
+    float V0 = 3.3;
+
+    ads_.prime_i2c();
+    uint16_t adc = ads_.readADC_SingleEnded(2);
+    float Vt = ads_.computeVolts(adc);
+    // thermistor resistance
+    float Rt = Rf*Vt / (V0 - Vt);
+    sd_.temp1_C = (1/298.15) + (1/3950)*log10(Rt/R0);
+
+    adc = ads_.readADC_SingleEnded(3);
+    Vt = ads_.computeVolts(adc);
+    Rt = Rf*Vt / (V0 - Vt);
+    sd_.temp2_C = (1/298.15) + (1/3950)*log10(Rt/R0);
+  }
+  // conditions for power meter
+  if (testmode != TestMode::kGRP) {
     ina1_.prime_i2c();
     sd_.ina1_voltage_V = ina1_.readBusVoltage()/1000;
     sd_.ina1_current_A = ina1_.readCurrent()/1000;
@@ -346,6 +445,11 @@ std::string Dynamometer::stringify_sensor_data_headers() {
 
 double Dynamometer::get_program_time() {return t_prog_s_;}
 
+void Dynamometer::start_fsm_timer(float seconds) {
+  fsm_timer_end = std::chrono::steady_clock::now()
+    + std::chrono::milliseconds(static_cast<uint32_t>(1e3 * seconds));
+}
+
 void Dynamometer::parse_settings(cxxopts::ParseResult dyn_opts) {
   dynset_.dyn_opts = dyn_opts;
   dynset_.period_s = 1.0/dyn_opts["frequency"].as<float>();
@@ -368,6 +472,8 @@ void Dynamometer::parse_settings(cxxopts::ParseResult dyn_opts) {
     dynset_.testmode = TestMode::kDirectDamping; std::cout << "test mode " << test_str << " selected" << std::endl;
   } else if (test_str == std::string("TV-sweep")) {
     dynset_.testmode = TestMode::kTorqueVelSweep; std::cout << "test mode " << test_str << " selected" << std::endl;
+  } else if (test_str == std::string("Durability")) {
+    dynset_.testmode = TestMode::kDurability; std::cout << "test mode " << test_str << " selected" << std::endl;
   } else if (test_str == std::string("manual")) {
     dynset_.testmode = TestMode::kManual; std::cout << "test mode " << test_str << " selected" << std::endl;
   } else {
@@ -381,6 +487,9 @@ void Dynamometer::parse_settings(cxxopts::ParseResult dyn_opts) {
 
   dynset_.main_cpu = dyn_opts["main-cpu"].as<uint8_t>();
   dynset_.can_cpu = dyn_opts["can-cpu"].as<uint8_t>();
+
+  dynset_.replay_vel_scale = dyn_opts["replay-vel-scale"].as<float>();
+  dynset_.replay_trq_scale = dyn_opts["replay-trq-scale"].as<float>();
 }
 
 void ConfigureRealtime(const uint8_t realtime) {
@@ -420,6 +529,9 @@ cxxopts::Options dyn_opts() {
   options.add_options()
     ("c,comment", "enter comment string to be included in output csv.", cxxopts::value<std::string>())
     ("p,path", "path to output csv.", cxxopts::value<std::string>()->default_value("/home/pi/embir-modular-leg/dynamometer-data/"))
+    ("replay-file", "path to csv of torque, velocity data to replay.", cxxopts::value<std::string>()->default_value(""))
+    ("replay-vel-scale", "scale velocity from replay data", cxxopts::value<float>()->default_value("1.0"))
+    ("replay-trq-scale", "scale torque from replay data", cxxopts::value<float>()->default_value("1.0"))
     ("gear1", "gear ratio of actuator 1, as a reduction", cxxopts::value<float>()->default_value("1.0"))
     ("gear2", "gear ratio of actuator 2, as a reduction", cxxopts::value<float>()->default_value("1.0"))
     ("actuator-1-id", "actuator 1 CAN ID", cxxopts::value<uint8_t>()->default_value("1"))

@@ -55,7 +55,16 @@ class Dynamometer {
     kGRP,
     kDirectDamping,
     kTorqueVelSweep,
+    kDurability,
     kManual,
+    kNone
+  };
+
+  enum DurabilityTestState : uint8_t {
+    kIdle,
+    kFollow,
+    kDurabilityGRP,
+    kDurabilityTorqueVelSweep,
     kNone
   };
 
@@ -80,6 +89,9 @@ class Dynamometer {
 
     uint32_t grp_sampling_period_us;
     uint32_t status_period_us;
+
+    float replay_vel_scale;
+    float replay_trq_scale;
   };
 
 
@@ -114,9 +126,16 @@ class Dynamometer {
 
   void swap_actuators();
 
+  void load_replay_data(std::string file);
+
+  void run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
+    mjbots::moteus::PositionCommand &cmdb);
+
   void generate_commands(double time, mjbots::moteus::PositionCommand &cmda, mjbots::moteus::PositionCommand &cmdb);
   
   void sample_random();
+
+  float filtered_random();
 
   void sample_sensors();
 
@@ -126,6 +145,8 @@ class Dynamometer {
 
   double get_program_time();
 
+  void start_fsm_timer(float seconds);
+
   void parse_settings(cxxopts::ParseResult dyn_opts);
 
   inline float get_torque() {return sd_.torque_Nm;}
@@ -133,6 +154,7 @@ class Dynamometer {
   DynamometerSettings dynset_;
   nlohmann::json grp_j;
  private:
+
   char cstr_buffer[128];
   Adafruit_ADS1015 ads_;
   Adafruit_INA260 ina1_;
@@ -166,4 +188,12 @@ class Dynamometer {
   std::random_device rd_;
   std::uniform_real_distribution<> realdist;
   float random_sample = 0;
+
+  DurabilityTestState dts = DurabilityTestState::kNone;
+  std::chrono::time_point<std::chrono::_V2::steady_clock, std::chrono::_V2::steady_clock::duration>
+    fsm_timer_end = std::chrono::steady_clock::now();
+
+  std::vector<float> replay_vel;
+  std::vector<float> replay_trq;
+  uint32_t replay_idx = 0;
 };
