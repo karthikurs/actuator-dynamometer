@@ -151,8 +151,11 @@ class Dynamometer {
 
   inline float get_torque() {return sd_.torque_Nm;}
 
+  bool safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInterface::ServoReply>& replies);
+
   DynamometerSettings dynset_;
   nlohmann::json grp_j;
+  nlohmann::json safety_j;
  private:
 
   char cstr_buffer[128];
@@ -196,4 +199,13 @@ class Dynamometer {
   std::vector<float> replay_vel;
   std::vector<float> replay_trq;
   uint32_t replay_idx = 0;
+
+  bool overtemp_latch;
+  bool dynamometer_safe;
+
+  float max_motor_temp_C_;
+  float max_housing_temp_C_;
+  float trs605_5_max_torque_Nm_;
+  float trd605_18_max_torque_Nm_;
+  float actuator_torque_disparity_ratio_;
 };

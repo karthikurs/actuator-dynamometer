@@ -281,6 +281,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
     }
 
     if (cycle_count > 1) std::copy(commands.begin(), commands.end(), saved_commands.begin());
+    dynamometer->safety_check(saved_replies);
   }
   // IF INTERRUPTED
   data_file.close();

@@ -108,6 +108,13 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
   dynset_.grp_sampling_period_us = static_cast<int64_t>(
     (1e6)/float(grp_j["random_sampling_frequency_Hz"]));
 
+  std::ifstream safety_if("configs/safety_limits.json");
+  safety_if >> safety_j;
+  max_motor_temp_C_ = safety_j["max_motor_temp_C"];
+  max_housing_temp_C_ = safety_j["max_housing_temp_C"];
+  trs605_5_max_torque_Nm_ = safety_j["trs605-5_max_torque_Nm"];
+  trd605_18_max_torque_Nm_ = safety_j["trd605-18_max_torque_Nm"];
+  actuator_torque_disparity_ratio_ = safety_j["actuator_torque_disparity_ratio"];
   
   dynset_.status_period_us = static_cast<int64_t>(
     (1e6)/10);
@@ -194,29 +201,29 @@ void Dynamometer::Run(const std::vector<MoteusInterface::ServoReply>& status,
   t_prog_s_ = double(time_span.count()) * std::chrono::steady_clock::period::num / 
         std::chrono::steady_clock::period::den;
 
-  // This is where your control loop would go.
-
-  if (cycle_count_ < 5) {
+  // sample sensors and store data
+  sample_sensors();
+  if (cycle_count_ < 5 || !dynamometer_safe) {
     for (auto& cmd : *output) {
       // We start everything with a stopped command to clear faults.
       cmd.mode = moteus::Mode::kStopped;
     }
+    return;
   }
-  else {
-    // Then we make the actuator2 servo mirror the actuator1 servo.
-    const auto actuator_a = Get(status, actuator_a_id);
-    double actuator_a_pos = actuator_a.position;
-    const auto actuator_b = Get(status, actuator_a_id);
-    double actuator_b_pos = actuator_b.position;
-    // We have everything we need to start commanding.
-    auto& actuator_b_out = output->at(actuator_b_idx);  // We constructed this, so we know the order.
-    auto& actuator_a_out = output->at(actuator_a_idx);
 
-    actuator_a_out.mode = moteus::Mode::kPosition;
-    // actuator_b_out.mode = moteus::Mode::kPosition;
-    actuator_b_out.mode = (dynset_.testmode == TestMode::kGRP) ? moteus::Mode::kZeroVelocity : moteus::Mode::kPosition;
-    generate_commands(t_prog_s_, actuator_a_out.position, actuator_b_out.position);
-  }
+  // Then we make the actuator2 servo mirror the actuator1 servo.
+  const auto actuator_a = Get(status, actuator_a_id);
+  double actuator_a_pos = actuator_a.position;
+  const auto actuator_b = Get(status, actuator_a_id);
+  double actuator_b_pos = actuator_b.position;
+  // We have everything we need to start commanding.
+  auto& actuator_b_out = output->at(actuator_b_idx);  // We constructed this, so we know the order.
+  auto& actuator_a_out = output->at(actuator_a_idx);
+  actuator_a_out.mode = moteus::Mode::kPosition;
+  // actuator_b_out.mode = moteus::Mode::kPosition;
+  actuator_b_out.mode = (dynset_.testmode == TestMode::kGRP) ? moteus::Mode::kZeroVelocity : moteus::Mode::kPosition;
+  generate_commands(t_prog_s_, actuator_a_out.position, actuator_b_out.position);
+
 }
 
 void Dynamometer::set_t0(std::chrono::steady_clock::time_point t0) {
@@ -297,7 +304,13 @@ void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand
   cmdb.position = 0;
   cmdb.velocity = 0;
   cmdb.feedforward_torque = 0;
-  // std::cout << "in generate_commands(), dynset_.testmode = " << dynset_.testmode << std::endl;
+
+  // this is superfluous but leaving here for the moment
+  if (!dynamometer_safe) {
+    cmda.kp_scale = 0; cmda.kd_scale = 0;
+    cmdb.kp_scale = 0; cmdb.kd_scale = 0;
+    return;
+  }
 
   switch (dynset_.testmode) {
     case TestMode::kTorqueConstant:
@@ -343,8 +356,6 @@ void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand
       break;
       }
   }
-  // sample sensors and store data
-  sample_sensors();
 }
 
 void Dynamometer::sample_random() {
@@ -503,6 +514,33 @@ void Dynamometer::parse_settings(cxxopts::ParseResult dyn_opts) {
   dynset_.replay_vel_scale = dyn_opts["replay-vel-scale"].as<float>();
   dynset_.replay_trq_scale = dyn_opts["replay-trq-scale"].as<float>();
 }
+
+bool Dynamometer::safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInterface::ServoReply>& replies) {
+  //
+  bool safe = true;
+  auto& reply1 = replies[0];
+  auto& reply2 = replies[1];
+
+  float trq1 = reply1.result.torque;
+  float trq2 = reply2.result.torque;
+
+  if (fabs(trq1) > 0.5 || fabs(trq2) > 0.5)
+    safe &= fabs(trq2-trq1)/trq1 < actuator_torque_disparity_ratio_;
+  if (overtemp_latch && sd_.temp1_C < (max_motor_temp_C_ - 15) && sd_.temp2_C < (max_housing_temp_C_ - 15))
+    overtemp_latch = false;
+  if (sd_.temp1_C > max_motor_temp_C_ || sd_.temp2_C > max_housing_temp_C_)
+    overtemp_latch = true;
+
+  safe &= overtemp_latch;
+  if (dynset_.tqsen == Dynamometer::TorqueSensor::kTRS605_5)
+    safe &= sd_.torque_Nm < trs605_5_max_torque_Nm_;
+  if (dynset_.tqsen == Dynamometer::TorqueSensor::kTRD605_18)
+    safe &= sd_.torque_Nm < trd605_18_max_torque_Nm_;
+  dynamometer_safe = safe;
+  if(!safe) std::cout << "unsafe condition detected!!" << std::endl;
+  return safe;
+}
+
 
 void ConfigureRealtime(const uint8_t realtime) {
   {
