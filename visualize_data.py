@@ -70,11 +70,11 @@ def main() :
         for i in range(num_cols) :
             print('\t{}:\t'.format(i) + headers[i])
         
-        fig = plt.figure()
-        ax = fig.gca()
-        # ax.hist(dt, bins = 1000)
-        plt.plot(dt)
-        plt.show()
+        # fig = plt.figure()
+        # ax = fig.gca()
+        # # ax.hist(dt, bins = 1000)
+        # plt.plot(dt)
+        # plt.show()
 
         fs = 1/Ts
         cutoff = 0.05*fs

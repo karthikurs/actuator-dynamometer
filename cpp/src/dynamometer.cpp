@@ -280,7 +280,7 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
         dts = DurabilityTestState::kIdle;
       }
       break;
-    case DurabilityTestState::kNone: {
+    case DurabilityTestState::kDurabilityNone: {
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.feedforward_torque = 0;
       cmdb.kp_scale = 0; cmdb.kd_scale = 0;
@@ -315,10 +315,21 @@ void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand
       break;
       }
     case TestMode::kTorqueVelSweep: {
-      cmda.position = std::sin(t_prog_s_);
-      cmda.velocity = nan("");
-      cmdb.position = std::sin(t_prog_s_);
-      cmdb.velocity = nan("");
+      // cmda.position = std::sin(t_prog_s_);
+      // cmda.velocity = nan("");
+      // cmdb.position = std::sin(t_prog_s_);
+      // cmdb.velocity = nan("");
+
+      cmda.kp_scale = 0; cmda.kd_scale = 0;
+      // cmda.position = std::numeric_limits<double>::quiet_NaN();
+      // cmda.velocity = std::numeric_limits<double>::quiet_NaN();
+      cmda.feedforward_torque = 0.2;
+      
+      cmdb.kp_scale = 1; cmdb.kd_scale = 1;
+      cmdb.position = std::numeric_limits<double>::quiet_NaN();
+      cmdb.velocity = -4;
+      // cmdb.feedforward_torque = 0.2;
+      // cmdb.feedforward_torque = std::numeric_limits<double>::quiet_NaN();
       break;
       }
     case TestMode::kDurability: {
@@ -384,7 +395,7 @@ void Dynamometer::sample_sensors() {
     uint16_t adc = ads_.readADC_SingleEnded(0);
     float torque_volts = ads_.computeVolts(adc);
     float tqsen_gain = (dynset_.tqsen==TorqueSensor::kTRD605_18) ? 18.0/50 : 5.0/5.0;
-    sd_.torque_Nm = (torque_volts - 5.0/3.0) * 3.0;
+    sd_.torque_Nm = -(torque_volts - 5.0/3.0) * 3.0;
   }
   // conditions for temp sensors
   if (testmode != TestMode::kGRP) {
@@ -477,7 +488,8 @@ void Dynamometer::parse_settings(cxxopts::ParseResult dyn_opts) {
   } else if (test_str == std::string("manual")) {
     dynset_.testmode = TestMode::kManual; std::cout << "test mode " << test_str << " selected" << std::endl;
   } else {
-    dynset_.testmode = TestMode::kNone;  std::cout << "no test mode selected" << std::endl;
+    dynset_.testmode = TestMode::kNone;  std::cout << "no test mode selected. exiting..." << std::endl;
+    exit(1);
   }
   
   auto tqsen_str = dyn_opts["torquesensor"].as<std::string>();

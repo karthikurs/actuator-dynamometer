@@ -91,7 +91,7 @@ std::string stringify_actuator_headers(uint8_t id) {
   std::ostringstream result;
   std::string aN = "a"+std::to_string(id)+" ";
   result << aN << "position cmd [rad]," << aN << "velocity cmd [rad/s]," << aN << "ff torque cmd [Nm],"
-    << aN << "position [rad]," << aN << "velocity [rad/s]," << aN << "ff torque [Nm]";
+    << aN << "position [rad]," << aN << "velocity [rad/s]," << aN << "torque [Nm]";
   return result.str();
 }
 
