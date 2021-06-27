@@ -326,11 +326,11 @@ int main(int argc, char** argv) {
   Dynamometer::DynamometerSettings& dynset = dynamometer.dynset_;
   if (dynset.testmode == Dynamometer::TestMode::kDurability) {
     // Load mini cheetah test file.
-    auto replay_file = opts["replay-file"].as<std::string>();
-    if (replay_file == "") {
-      std::cerr << "No replay file specified! Exiting..." << std::endl;
-      return 1;
-    }
+    // auto replay_file = opts["replay-file"].as<std::string>();
+    // if (replay_file == "") {
+    //   std::cerr << "No replay file specified! Exiting..." << std::endl;
+    //   return 1;
+    // }
     
   }
   data_file << "# \n# user comment: " << opts["comment"].as<std::string>() << "\n# \n";

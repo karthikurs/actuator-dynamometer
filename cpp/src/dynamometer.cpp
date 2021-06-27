@@ -248,6 +248,10 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
   auto fsm_now = std::chrono::steady_clock::now();
   switch (dts) {
     case DurabilityTestState::kIdle: {
+      if (fsm_now > fsm_timer_end) {
+        start_fsm_timer(2);
+        dts = DurabilityTestState::kDurabilityTorqueVelSweep;
+      }
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.feedforward_torque = 0;
       cmdb.kp_scale = 0; cmdb.kd_scale = 0;
@@ -285,9 +289,15 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       break;}
     case DurabilityTestState::kDurabilityTorqueVelSweep:
       if (fsm_now > fsm_timer_end) {
-        start_fsm_timer(15);
+        start_fsm_timer(2);
         dts = DurabilityTestState::kIdle;
       }
+      cmda.kp_scale = 0; cmda.kd_scale = 0;
+      cmda.feedforward_torque = 0.2;
+      
+      cmdb.kp_scale = 1; cmdb.kd_scale = 1;
+      cmdb.position = std::numeric_limits<double>::quiet_NaN();
+      cmdb.velocity = -4;
       break;
     case DurabilityTestState::kDurabilityNone: {
       cmda.kp_scale = 0; cmda.kd_scale = 0;
@@ -299,7 +309,9 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
   }
 }
 
-void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand &cmda, mjbots::moteus::PositionCommand &cmdb) {
+void Dynamometer::generate_commands(double time,
+  mjbots::moteus::PositionCommand &cmda,
+  mjbots::moteus::PositionCommand &cmdb) {
   cmda.position = 0;
   cmda.velocity = 0;
   cmda.feedforward_torque = 0;
@@ -348,6 +360,7 @@ void Dynamometer::generate_commands(double time, mjbots::moteus::PositionCommand
       break;
       }
     case TestMode::kDurability: {
+      run_durability_fsm(cmda, cmdb);
       break;
       }
     case TestMode::kManual:

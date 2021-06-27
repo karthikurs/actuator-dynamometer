@@ -192,7 +192,7 @@ class Dynamometer {
   std::uniform_real_distribution<> realdist;
   float random_sample = 0;
 
-  DurabilityTestState dts = DurabilityTestState::kDurabilityNone;
+  DurabilityTestState dts = DurabilityTestState::kIdle;
   std::chrono::time_point<std::chrono::_V2::steady_clock, std::chrono::_V2::steady_clock::duration>
     fsm_timer_end = std::chrono::steady_clock::now();
 
