@@ -200,9 +200,10 @@ void Dynamometer::Run(const std::vector<MoteusInterface::ServoReply>& status,
   auto time_span = std::chrono::steady_clock::now() - t0_;
   t_prog_s_ = double(time_span.count()) * std::chrono::steady_clock::period::num / 
         std::chrono::steady_clock::period::den;
-
+  // std::cout << "entering Run()" << std::endl;
   // sample sensors and store data
   sample_sensors();
+  // std::cout << "sampled sensors" << std::endl;
   if (cycle_count_ < 5 || !dynamometer_safe) {
     for (auto& cmd : *output) {
       // We start everything with a stopped command to clear faults.
@@ -223,6 +224,7 @@ void Dynamometer::Run(const std::vector<MoteusInterface::ServoReply>& status,
   // actuator_b_out.mode = moteus::Mode::kPosition;
   actuator_b_out.mode = (dynset_.testmode == TestMode::kGRP) ? moteus::Mode::kZeroVelocity : moteus::Mode::kPosition;
   generate_commands(t_prog_s_, actuator_a_out.position, actuator_b_out.position);
+  // std::cout << "generated commands" << std::endl;
 
 }
 
@@ -518,26 +520,43 @@ void Dynamometer::parse_settings(cxxopts::ParseResult dyn_opts) {
 bool Dynamometer::safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInterface::ServoReply>& replies) {
   //
   bool safe = true;
-  auto& reply1 = replies[0];
-  auto& reply2 = replies[1];
+  float trq1;
+  float trq2;
 
-  float trq1 = reply1.result.torque;
-  float trq2 = reply2.result.torque;
+  if (replies.size() == 2){
+    auto& reply1 = replies[0];
+    auto& reply2 = replies[1];
 
-  if (fabs(trq1) > 0.5 || fabs(trq2) > 0.5)
-    safe &= fabs(trq2-trq1)/trq1 < actuator_torque_disparity_ratio_;
+    trq1 = reply1.result.torque;
+    trq2 = reply2.result.torque;
+
+    if (fabs(trq1) > 0.5 || fabs(trq2) > 0.5)
+      safe &= fabs(trq2-trq1)/trq1 < actuator_torque_disparity_ratio_;
+  }
+  else std::cerr << "safety check: incorrect number of replies: " << replies.size() << std::endl;
+
   if (overtemp_latch && sd_.temp1_C < (max_motor_temp_C_ - 15) && sd_.temp2_C < (max_housing_temp_C_ - 15))
     overtemp_latch = false;
   if (sd_.temp1_C > max_motor_temp_C_ || sd_.temp2_C > max_housing_temp_C_)
     overtemp_latch = true;
 
-  safe &= overtemp_latch;
+  safe &= !overtemp_latch;
   if (dynset_.tqsen == Dynamometer::TorqueSensor::kTRS605_5)
     safe &= sd_.torque_Nm < trs605_5_max_torque_Nm_;
   if (dynset_.tqsen == Dynamometer::TorqueSensor::kTRD605_18)
     safe &= sd_.torque_Nm < trd605_18_max_torque_Nm_;
   dynamometer_safe = safe;
-  if(!safe) std::cout << "unsafe condition detected!!" << std::endl;
+  if(!safe) {
+    std::cout << "unsafe condition detected!!" << std::endl;
+    std::cout << "\tovertemp_latch = " << overtemp_latch
+      << ",\n\tsd_.temp1_C = " << sd_.temp1_C
+      << ",\n\tsd_.temp2_C = " << sd_.temp2_C
+      << ",\n\tmax_motor_temp_C_ = " <<  max_motor_temp_C_
+      << ",\n\tmax_housing_temp_C_ = " <<  max_housing_temp_C_
+      << ",\n\ttrq1 = " <<  trq1
+      << ",\n\ttrq2 = " <<  trq2 << std::endl;
+
+  }
   return safe;
 }
 

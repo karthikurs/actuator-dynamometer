@@ -200,8 +200,8 @@ class Dynamometer {
   std::vector<float> replay_trq;
   uint32_t replay_idx = 0;
 
-  bool overtemp_latch;
-  bool dynamometer_safe;
+  bool overtemp_latch = false;
+  bool dynamometer_safe = true;
 
   float max_motor_temp_C_;
   float max_housing_temp_C_;
