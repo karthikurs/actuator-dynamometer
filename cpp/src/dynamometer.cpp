@@ -122,9 +122,11 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
   std::uniform_real_distribution<> dist(-grp_max_ampl, grp_max_ampl);
   realdist = dist;
 
-  std::cout << "restoring calibrations... \n";
-  system("python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '3=1;4=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_1_dyn.log");
-  system("python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '3=1;4=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_2_dyn.log");
+  if (!(dyn_opts["skip-cal"].as<bool>())) {
+    std::cout << "restoring calibrations... \n";
+    system("python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '3=1;4=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_1_dyn.log");
+    system("python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '3=1;4=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_2_dyn.log");
+  }
 
   fib_.resize(lpf_order_+1);
   fob_.resize(lpf_order_+1);
@@ -264,13 +266,14 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       // assign them into commands
       float vel = dynset_.replay_vel_scale * replay_vel[replay_idx];
       float trq = dynset_.replay_trq_scale * replay_trq[replay_idx];
+      ++replay_idx;
       
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.feedforward_torque = trq;
       
       cmdb.kp_scale = 1; cmdb.kd_scale = 1;
       cmdb.velocity = -vel;
-      cmdb.feedforward_torque = trq;
+      // cmdb.feedforward_torque = trq;
 
       break;
       }
@@ -438,12 +441,19 @@ void Dynamometer::sample_sensors() {
     float Vt = ads_.computeVolts(adc);
     // thermistor resistance
     float Rt = Rf*Vt / (V0 - Vt);
-    sd_.temp1_C = (1/298.15) + (1/3950)*log10(Rt/R0);
+    sd_.temp1_C = (1.0/298.15) + (1.0/3950.0)*log10(Rt/R0);
+    sd_.temp1_C = 1.0/sd_.temp1_C - 273.15;
 
     adc = ads_.readADC_SingleEnded(3);
     Vt = ads_.computeVolts(adc);
     Rt = Rf*Vt / (V0 - Vt);
-    sd_.temp2_C = (1/298.15) + (1/3950)*log10(Rt/R0);
+    sd_.temp2_C = (1.0/298.15) + (1.0/3950.0)*log10(Rt/R0);
+    sd_.temp2_C = 1.0/sd_.temp2_C - 273.15;
+    // std::cout << "sd_.temp1_C - " << sd_.temp1_C << ",\n"
+    //   << "sd_.temp2_C = " << sd_.temp2_C << ",\n"
+    //   << "Vt = " << Vt << ",\n"
+    //   << "Rt = " << Rt << ",\n"
+    //   << std::endl;
   }
   // conditions for power meter
   if (testmode != TestMode::kGRP) {
@@ -629,6 +639,7 @@ cxxopts::Options dyn_opts() {
     ("duration", "test duration in seconds", cxxopts::value<float>())
     ("frequency", "test sampling and command frequency in Hz", cxxopts::value<float>()->default_value("250"))
     ("test-mode", "choose between [KT|GRP|direct-damping|TV-sweep|manual]", cxxopts::value<std::string>()->default_value("none"))
+    ("skip-cal", "skip recalibration")
     ("h,help", "Print usage")
   ;
 
