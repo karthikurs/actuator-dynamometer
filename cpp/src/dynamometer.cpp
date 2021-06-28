@@ -251,8 +251,8 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
   switch (dts) {
     case DurabilityTestState::kIdle: {
       if (fsm_now > fsm_timer_end) {
-        start_fsm_timer(2);
-        dts = DurabilityTestState::kDurabilityTorqueVelSweep;
+        start_fsm_timer(60);
+        dts = DurabilityTestState::kFollow;
       }
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.position = std::numeric_limits<double>::quiet_NaN();
@@ -266,6 +266,10 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       break;
       }
     case DurabilityTestState::kFollow:{
+      if (fsm_now > fsm_timer_end) {
+        start_fsm_timer(15);
+        dts = DurabilityTestState::kIdle;
+      }
       // step index
       // get new torque and vel values
       // assign them into commands
@@ -277,7 +281,9 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       cmda.feedforward_torque = trq;
       
       cmdb.kp_scale = 1; cmdb.kd_scale = 1;
+      cmdb.position = std::numeric_limits<double>::quiet_NaN();
       cmdb.velocity = -vel;
+      cmdb.feedforward_torque = 0;
       // cmdb.feedforward_torque = trq;
 
       break;
