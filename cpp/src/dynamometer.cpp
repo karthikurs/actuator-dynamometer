@@ -273,8 +273,8 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       // step index
       // get new torque and vel values
       // assign them into commands
-      float vel = dynset_.replay_vel_scale * replay_vel[replay_idx];
-      float trq = dynset_.replay_trq_scale * replay_trq[replay_idx];
+      float vel = dynset_.replay_vel_scale * replay_vel[replay_idx] * dynset_.gear2;
+      float trq = dynset_.replay_trq_scale * replay_trq[replay_idx] / dynset_.gear1;
       ++replay_idx;
       
       cmda.kp_scale = 0; cmda.kd_scale = 0;
