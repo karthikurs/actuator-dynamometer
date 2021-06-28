@@ -255,8 +255,13 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
         dts = DurabilityTestState::kDurabilityTorqueVelSweep;
       }
       cmda.kp_scale = 0; cmda.kd_scale = 0;
+      cmda.position = std::numeric_limits<double>::quiet_NaN();
+      // cmda.velocity = std::numeric_limits<double>::quiet_NaN();
       cmda.feedforward_torque = 0;
+
       cmdb.kp_scale = 0; cmdb.kd_scale = 0;
+      cmdb.position = std::numeric_limits<double>::quiet_NaN();
+      // cmdb.velocity = std::numeric_limits<double>::quiet_NaN();
       cmdb.feedforward_torque = 0;
       break;
       }
@@ -304,6 +309,7 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       cmdb.kp_scale = 1; cmdb.kd_scale = 1;
       cmdb.position = std::numeric_limits<double>::quiet_NaN();
       cmdb.velocity = -4;
+      cmdb.feedforward_torque = 0;
       break;
     case DurabilityTestState::kDurabilityNone: {
       cmda.kp_scale = 0; cmda.kd_scale = 0;
