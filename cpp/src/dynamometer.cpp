@@ -291,8 +291,11 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       if (fsm_now > fsm_timer_end) {
         start_fsm_timer(2);
         dts = DurabilityTestState::kIdle;
+        swap_actuators();
       }
       cmda.kp_scale = 0; cmda.kd_scale = 0;
+      // cmda.position = std::numeric_limits<double>::quiet_NaN();
+      // cmda.velocity = std::numeric_limits<double>::quiet_NaN();
       cmda.feedforward_torque = 0.2;
       
       cmdb.kp_scale = 1; cmdb.kd_scale = 1;
