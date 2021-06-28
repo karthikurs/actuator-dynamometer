@@ -151,6 +151,10 @@ class Dynamometer {
 
   inline float get_torque() {return sd_.torque_Nm;}
 
+  inline uint8_t get_actuator_a_id() {return actuator_a_id;}
+
+  inline DurabilityTestState get_dts() {return dts;}
+
   bool safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInterface::ServoReply>& replies);
 
   DynamometerSettings dynset_;

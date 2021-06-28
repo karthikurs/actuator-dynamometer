@@ -171,7 +171,10 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
       << stringify_moteus_reply_header(1) << ","
       << stringify_actuator_headers(2) << ","
       << stringify_moteus_reply_header(2) << ","
-      << dynamometer->stringify_sensor_data_headers() << "\n";
+      << dynamometer->stringify_sensor_data_headers() << ",actuator_a_id";
+    if(dynset.testmode == Dynamometer::TestMode::kDurability)
+      data_file << ",durability test mode";
+    data_file << "\n";
   }
 
   // * MAIN LOOP *
@@ -271,7 +274,10 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
         a2_str = stringify_actuator(saved_commands.at(cmd2_idx), saved_replies.at(rpl2_idx), dynset.gear2);
         sensor_str = dynamometer->stringify_sensor_data();
         data_file << a1_str << "," << c1_str << ","
-          << a2_str << "," << c2_str << "," << sensor_str << "\n";
+          << a2_str << "," << c2_str << "," << sensor_str << "," << dynamometer->get_actuator_a_id();
+        if(dynset.testmode == Dynamometer::TestMode::kDurability)
+          data_file << "," << (int)(dynamometer->get_dts());
+        data_file << "\n";
       }
       // data_file.flush();
     }
