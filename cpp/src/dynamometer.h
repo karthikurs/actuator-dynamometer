@@ -143,9 +143,13 @@ class Dynamometer {
 
   std::string stringify_sensor_data_headers();
 
-  double get_program_time();
+  inline double get_program_time() {return t_prog_s_;}
 
-  void start_fsm_timer(float seconds);
+  inline double get_function_time() {return t_func_s_;}
+
+  void start_fsm_program_timer(float seconds);
+
+  void start_fsm_function_timer(float seconds);
 
   void parse_settings(cxxopts::ParseResult dyn_opts);
 
@@ -160,6 +164,8 @@ class Dynamometer {
   DynamometerSettings dynset_;
   nlohmann::json grp_j;
   nlohmann::json safety_j;
+  nlohmann::json durability_j;
+
  private:
 
   char cstr_buffer[128];
@@ -179,10 +185,12 @@ class Dynamometer {
   uint8_t actuator_a_id = 1;
   uint8_t actuator_b_id = 2;
 
-  float grp_max_ampl = 1.0; //amps
+  float grp_max_ampl = 1.0; //Nm
 
   std::chrono::steady_clock::time_point t0_;
-  double t_prog_s_;
+  double t_prog_s_ = 0;
+  double t_prog_old_s_ = 0;
+  double t_func_s_ = 0;
 
   double *lpf_dcof_;
   int *lpf_ccof_;
@@ -197,8 +205,12 @@ class Dynamometer {
   float random_sample = 0;
 
   DurabilityTestState dts = DurabilityTestState::kIdle;
-  std::chrono::time_point<std::chrono::_V2::steady_clock, std::chrono::_V2::steady_clock::duration>
-    fsm_timer_end = std::chrono::steady_clock::now();
+  DurabilityTestState dts_after_idle = DurabilityTestState::kFollow;
+  double fsm_program_timer_end = 0;
+  double fsm_function_timer_end = 0;
+
+  float kFollow_duration_S = 0;
+  float kDurabilityGRP_duration_S = 0;
 
   std::vector<float> replay_vel;
   std::vector<float> replay_trq;
@@ -212,4 +224,5 @@ class Dynamometer {
   float trs605_5_max_torque_Nm_;
   float trd605_18_max_torque_Nm_;
   float actuator_torque_disparity_ratio_;
+  uint8_t torque_disparity_shift_reg_ = 0;
 };

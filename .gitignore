@@ -132,3 +132,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 .vscode/
+mini-cheetah-logs/lcmlog-2021-02-21-1-lcmfail.mat
+mini-cheetah-logs/lcmlog-2021-02-21-2-powerfail.mat
+mini-cheetah-logs/lcmlog-2021-02-21-3-leftcircle.mat
+mini-cheetah-logs/lcmlog-2021-02-21-4-rightcircle.mat
+mini-cheetah-logs/lcmlog-2021-02-21-5-short.mat
+mini-cheetah-logs/lcmlog-2021-02-21-6-difficult-slippery.mat
+*.asv

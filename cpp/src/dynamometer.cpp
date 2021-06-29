@@ -116,6 +116,11 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
   trd605_18_max_torque_Nm_ = safety_j["trd605-18_max_torque_Nm"];
   actuator_torque_disparity_ratio_ = safety_j["actuator_torque_disparity_ratio"];
   
+  std::ifstream durability_if("configs/durability.json");
+  durability_if >> durability_j;
+  kFollow_duration_S = durability_j["kFollow_duration_S"];
+  kDurabilityGRP_duration_S = durability_j["kDurabilityGRP_duration_S"];
+
   dynset_.status_period_us = static_cast<int64_t>(
     (1e6)/10);
 
@@ -202,6 +207,9 @@ void Dynamometer::Run(const std::vector<MoteusInterface::ServoReply>& status,
   auto time_span = std::chrono::steady_clock::now() - t0_;
   t_prog_s_ = double(time_span.count()) * std::chrono::steady_clock::period::num / 
         std::chrono::steady_clock::period::den;
+  
+  if(dynamometer_safe) t_func_s_ += t_prog_s_ - t_prog_old_s_;
+  t_prog_old_s_ = t_prog_s_;
   // std::cout << "entering Run()" << std::endl;
   // sample sensors and store data
   sample_sensors();
@@ -226,6 +234,8 @@ void Dynamometer::Run(const std::vector<MoteusInterface::ServoReply>& status,
   // actuator_b_out.mode = moteus::Mode::kPosition;
   actuator_b_out.mode = (dynset_.testmode == TestMode::kGRP) ? moteus::Mode::kZeroVelocity : moteus::Mode::kPosition;
   generate_commands(t_prog_s_, actuator_a_out.position, actuator_b_out.position);
+  if (dts == DurabilityTestState::kDurabilityGRP)
+    actuator_b_out.mode = moteus::Mode::kStopped; // set load actuator to stopped for this one
   // std::cout << "generated commands" << std::endl;
 
 }
@@ -247,28 +257,32 @@ void Dynamometer::load_replay_data(std::string file) {
 
 void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
   mjbots::moteus::PositionCommand &cmdb) {
-  auto fsm_now = std::chrono::steady_clock::now();
+  double fsm_prog_now = t_prog_s_;
+  double fsm_func_now = t_func_s_;
   switch (dts) {
     case DurabilityTestState::kIdle: {
-      if (fsm_now > fsm_timer_end) {
-        start_fsm_timer(60);
+      if (fsm_func_now > fsm_function_timer_end && dts_after_idle == DurabilityTestState::kFollow) {
+        start_fsm_function_timer(kFollow_duration_S);
         dts = DurabilityTestState::kFollow;
+      }
+      else if (fsm_func_now > fsm_function_timer_end && dts_after_idle == DurabilityTestState::kDurabilityGRP) {
+        start_fsm_function_timer(kDurabilityGRP_duration_S);
+        dts = DurabilityTestState::kDurabilityGRP;
       }
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.position = std::numeric_limits<double>::quiet_NaN();
-      // cmda.velocity = std::numeric_limits<double>::quiet_NaN();
       cmda.feedforward_torque = 0;
 
       cmdb.kp_scale = 0; cmdb.kd_scale = 0;
       cmdb.position = std::numeric_limits<double>::quiet_NaN();
-      // cmdb.velocity = std::numeric_limits<double>::quiet_NaN();
       cmdb.feedforward_torque = 0;
       break;
       }
     case DurabilityTestState::kFollow:{
-      if (fsm_now > fsm_timer_end) {
-        start_fsm_timer(15);
+      if (fsm_func_now > fsm_function_timer_end) {
+        start_fsm_function_timer(10);
         dts = DurabilityTestState::kIdle;
+        dts_after_idle = DurabilityTestState::kDurabilityGRP;
       }
       // step index
       // get new torque and vel values
@@ -277,8 +291,12 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       float trq = dynset_.replay_trq_scale * replay_trq[replay_idx] / dynset_.gear1;
       ++replay_idx;
       if (replay_idx == replay_trq.size()) {
+        std::cout << "looping replay file and swapping actuators (30s pause)..." << std::endl;
         replay_idx = 0;
-        std::cout << "looping replay file" << std::endl;
+        swap_actuators();
+        start_fsm_function_timer(30);
+        dts = DurabilityTestState::kIdle;
+        dts_after_idle = DurabilityTestState::kFollow;
       }
       
       cmda.kp_scale = 0; cmda.kd_scale = 0;
@@ -293,8 +311,8 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       break;
       }
     case DurabilityTestState::kDurabilityGRP:{
-      if (fsm_now > fsm_timer_end) {
-        start_fsm_timer(15);
+      if (fsm_func_now > fsm_function_timer_end) {
+        start_fsm_function_timer(10);
         dts = DurabilityTestState::kIdle;
       }
       float rand_cmd = filtered_random();
@@ -306,8 +324,8 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       cmdb.feedforward_torque = 0;
       break;}
     case DurabilityTestState::kDurabilityTorqueVelSweep:
-      if (fsm_now > fsm_timer_end) {
-        start_fsm_timer(2);
+      if (fsm_func_now > fsm_function_timer_end) {
+        start_fsm_function_timer(2);
         dts = DurabilityTestState::kIdle;
         swap_actuators();
       }
@@ -509,11 +527,12 @@ std::string Dynamometer::stringify_sensor_data_headers() {
   return result.str();
 }
 
-double Dynamometer::get_program_time() {return t_prog_s_;}
+void Dynamometer::start_fsm_program_timer(float seconds) {
+  fsm_program_timer_end = t_prog_s_ + seconds;
+}
 
-void Dynamometer::start_fsm_timer(float seconds) {
-  fsm_timer_end = std::chrono::steady_clock::now()
-    + std::chrono::milliseconds(static_cast<uint32_t>(1e3 * seconds));
+void Dynamometer::start_fsm_function_timer(float seconds) {
+  fsm_function_timer_end = t_func_s_ + seconds;
 }
 
 void Dynamometer::parse_settings(cxxopts::ParseResult dyn_opts) {
@@ -572,8 +591,12 @@ bool Dynamometer::safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInt
     trq1 = reply1.result.torque;
     trq2 = reply2.result.torque;
 
-    if (fabs(trq1) > 0.5 || fabs(trq2) > 0.5)
-      safe &= fabs(trq2-trq1)/trq1 < actuator_torque_disparity_ratio_;
+    torque_disparity_shift_reg_ <<= 1;
+    if ((fabs(trq1) > 0.5 || fabs(trq2) > 0.5) && (fabs(trq2-trq1)/trq1 < actuator_torque_disparity_ratio_))
+      torque_disparity_shift_reg_ |= 0x01; // if torques are disparate, set lowest bit to high
+    else torque_disparity_shift_reg_ &= ~(0x01); // else set lowest bit to low
+    torque_disparity_shift_reg_ &= 0xFF;
+    safe &= (torque_disparity != 0xFF); // if all bits are high, register a disparity based unsafe state
   }
   else std::cerr << "safety check: incorrect number of replies: " << replies.size() << std::endl;
 
