@@ -17,6 +17,9 @@ def main() :
     parser.add_argument("-i", "--interactive",\
         help="interactive mode: decide which data to plot of what is present in csv",
         action='store_true')
+    parser.add_argument("--minicheetah",\
+        help="specify number of samples to use for running average filtering",
+        action='store_true')
     parser.add_argument("-o", "--outlier",\
         help="outlier rejection: ignore rows in the csv for which brake torque data are in the <arg> extremes of the data: -o 0.05 will drop the top and bottom 5%.",
         type=float)
@@ -86,6 +89,11 @@ def main() :
         # return
         print('enter which data you would like to plot by their indices separated by pipes \'|\'')
         print('the first index will be taken as the x-axis and the rest will be plotted as separate series')
+        if args.minicheetah :
+            fig = plt.figure()
+            ax = fig.gca()
+            ax.plot(data["velocity [rad/s]"])
+            plt.show()
         while True:
             options = input('\t> ')
             if options[0] == 'q':

@@ -1,4 +1,7 @@
 {
-  "kFollow_duration_S" : 120,
-  "kDurabilityGRP_duration_S" : 60
+  "kFollow_duration_S" : 300,
+  "kDurabilityGRP_duration_S" : 30,
+  "kTorqueVelSweep_condition_duration_S" : 2,
+  "kTorqueVelSweep_velocities_rad_s" : [2.0, 4.0],
+  "kTorqueVelSweep_torques_Nm" : [2.0, 4.0]
 }

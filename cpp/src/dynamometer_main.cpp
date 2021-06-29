@@ -352,8 +352,9 @@ int main(int argc, char** argv) {
   data_file << "# torque sensor: " << opts["torquesensor"].as<std::string>() << "\n";
   data_file << "# main cpu: " << (int)(opts["main-cpu"].as<uint8_t>()) << "\n";
   data_file << "# can cpu: " << (int)(opts["can-cpu"].as<uint8_t>()) << "\n# \n";
-  if (dynset.testmode == Dynamometer::TestMode::kGRP)
-    data_file << "# grp.json:\n#     " << dynamometer.grp_j << std::endl;
+  data_file << "# grp.json:\n#     " << dynamometer.grp_j << std::endl;
+  data_file << "# safety_limits.json:\n#     " << dynamometer.safety_j << std::endl;
+  data_file << "# durability.json:\n#     " << dynamometer.durability_j << std::endl;
   if (dynset.testmode == Dynamometer::TestMode::kDurability)
     data_file << "# replay file:\n#     " << opts["replay-file"].as<std::string>() << std::endl;
   

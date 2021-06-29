@@ -211,18 +211,27 @@ class Dynamometer {
 
   float kFollow_duration_S = 0;
   float kDurabilityGRP_duration_S = 0;
+  float kTorqueVelSweep_condition_duration_S = 0;
+  std::vector<float> kTorqueVelSweep_velocities_rad_s;
+  std::vector<float> kTorqueVelSweep_torques_Nm;
+  std::vector<float> sweep_vel;
+  std::vector<float> sweep_trq;
+  uint32_t sweep_idx = 0;
 
   std::vector<float> replay_vel;
   std::vector<float> replay_trq;
+
   uint32_t replay_idx = 0;
 
   bool overtemp_latch = false;
   bool dynamometer_safe = true;
 
   float max_motor_temp_C_;
+  std::vector<float> motor_temp_buffer; 
   float max_housing_temp_C_;
+  std::vector<float> housing_temp_buffer; 
   float trs605_5_max_torque_Nm_;
   float trd605_18_max_torque_Nm_;
   float actuator_torque_disparity_ratio_;
-  uint8_t torque_disparity_shift_reg_ = 0;
+  std::vector<float> disparity_buffer;
 };

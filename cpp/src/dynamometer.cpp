@@ -112,14 +112,39 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
   safety_if >> safety_j;
   max_motor_temp_C_ = safety_j["max_motor_temp_C"];
   max_housing_temp_C_ = safety_j["max_housing_temp_C"];
+  motor_temp_buffer.resize(8);
+  housing_temp_buffer.resize(8);
   trs605_5_max_torque_Nm_ = safety_j["trs605-5_max_torque_Nm"];
   trd605_18_max_torque_Nm_ = safety_j["trd605-18_max_torque_Nm"];
   actuator_torque_disparity_ratio_ = safety_j["actuator_torque_disparity_ratio"];
-  
+  disparity_buffer.resize(8);
+
   std::ifstream durability_if("configs/durability.json");
   durability_if >> durability_j;
   kFollow_duration_S = durability_j["kFollow_duration_S"];
   kDurabilityGRP_duration_S = durability_j["kDurabilityGRP_duration_S"];
+  kTorqueVelSweep_condition_duration_S = durability_j["kTorqueVelSweep_condition_duration_S"];
+  kTorqueVelSweep_velocities_rad_s = durability_j["kTorqueVelSweep_velocities_rad_s"].get<std::vector<float>>();
+  kTorqueVelSweep_torques_Nm = durability_j["kTorqueVelSweep_torques_Nm"].get<std::vector<float>>();
+
+  for (float trq : kTorqueVelSweep_torques_Nm) {
+    for (float vel : kTorqueVelSweep_velocities_rad_s) {
+      std::cout << trq << ", " << vel << std::endl;
+      sweep_trq.push_back(trq);
+      sweep_trq.push_back(trq);
+      sweep_trq.push_back(0);
+      sweep_trq.push_back(-trq);
+      sweep_trq.push_back(-trq);
+      sweep_trq.push_back(0);
+
+      sweep_vel.push_back(vel);
+      sweep_vel.push_back(-vel);
+      sweep_vel.push_back(0);
+      sweep_vel.push_back(vel);
+      sweep_vel.push_back(-vel);
+      sweep_vel.push_back(0);
+    }
+  }
 
   dynset_.status_period_us = static_cast<int64_t>(
     (1e6)/10);
@@ -264,10 +289,20 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       if (fsm_func_now > fsm_function_timer_end && dts_after_idle == DurabilityTestState::kFollow) {
         start_fsm_function_timer(kFollow_duration_S);
         dts = DurabilityTestState::kFollow;
+        std::cout << "transitioning from Idle to Follow; actuator "
+          << (int)actuator_a_id << " driving\n";
       }
       else if (fsm_func_now > fsm_function_timer_end && dts_after_idle == DurabilityTestState::kDurabilityGRP) {
         start_fsm_function_timer(kDurabilityGRP_duration_S);
         dts = DurabilityTestState::kDurabilityGRP;
+        std::cout << "transitioning from Idle to DurabilityGRP; actuator "
+          << (int)actuator_a_id << " driving\n";
+      }
+      else if (fsm_func_now > fsm_function_timer_end && dts_after_idle == DurabilityTestState::kDurabilityTorqueVelSweep) {
+        start_fsm_function_timer(kTorqueVelSweep_condition_duration_S);
+        dts = DurabilityTestState::kDurabilityTorqueVelSweep;
+        std::cout << "transitioning from Idle to DurabilityTorqueVelSweep; actuator "
+          << (int)actuator_a_id << " driving\n";
       }
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.position = std::numeric_limits<double>::quiet_NaN();
@@ -283,6 +318,8 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
         start_fsm_function_timer(10);
         dts = DurabilityTestState::kIdle;
         dts_after_idle = DurabilityTestState::kDurabilityGRP;
+        std::cout << "transitioning from Follow to Idle; actuator "
+          << (int)actuator_a_id << " driving\n";
       }
       // step index
       // get new torque and vel values
@@ -297,6 +334,8 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
         start_fsm_function_timer(30);
         dts = DurabilityTestState::kIdle;
         dts_after_idle = DurabilityTestState::kFollow;
+        std::cout << "transitioning from Follow to Idle; actuator "
+          << (int)actuator_a_id << " driving\n";
       }
       
       cmda.kp_scale = 0; cmda.kd_scale = 0;
@@ -314,6 +353,9 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       if (fsm_func_now > fsm_function_timer_end) {
         start_fsm_function_timer(10);
         dts = DurabilityTestState::kIdle;
+        dts_after_idle = DurabilityTestState::kDurabilityTorqueVelSweep;
+        std::cout << "transitioning from DurabilityGRP to Idle; actuator "
+          << (int)actuator_a_id << " driving\n";
       }
       float rand_cmd = filtered_random();
       
@@ -323,22 +365,35 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       cmdb.kp_scale = 0; cmdb.kd_scale = 0;
       cmdb.feedforward_torque = 0;
       break;}
-    case DurabilityTestState::kDurabilityTorqueVelSweep:
-      if (fsm_func_now > fsm_function_timer_end) {
-        start_fsm_function_timer(2);
+    case DurabilityTestState::kDurabilityTorqueVelSweep: {
+      // transition when we're on the last index and timer has run out
+      if (sweep_idx >= (sweep_vel.size()-1) && fsm_func_now > fsm_function_timer_end) {
+        start_fsm_function_timer(10);
         dts = DurabilityTestState::kIdle;
-        swap_actuators();
+        dts_after_idle = DurabilityTestState::kFollow;
+        std::cout << "transitioning from DurabilityTorqueVelSweep to Idle; actuator "
+          << (int)actuator_a_id << " driving\n";
+        sweep_idx = 0; // reset index for next round
       }
+      // incremember condition when there is room to increment and
+      // we've run for condition duration
+      if (sweep_idx < (sweep_vel.size()-1) && fsm_func_now > fsm_function_timer_end) {
+        start_fsm_function_timer(kTorqueVelSweep_condition_duration_S);
+        sweep_idx++;
+      }
+      float trq_condition = sweep_trq[sweep_idx] / dynset_.gear1;
+      float vel_condition = sweep_vel[sweep_idx] * dynset_.gear1;
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       // cmda.position = std::numeric_limits<double>::quiet_NaN();
       // cmda.velocity = std::numeric_limits<double>::quiet_NaN();
-      cmda.feedforward_torque = 0.2;
+      cmda.feedforward_torque = trq_condition;
       
       cmdb.kp_scale = 1; cmdb.kd_scale = 1;
       cmdb.position = std::numeric_limits<double>::quiet_NaN();
-      cmdb.velocity = -4;
+      cmdb.velocity = -vel_condition;
       cmdb.feedforward_torque = 0;
       break;
+      }
     case DurabilityTestState::kDurabilityNone: {
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.feedforward_torque = 0;
@@ -583,6 +638,8 @@ bool Dynamometer::safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInt
   bool safe = true;
   float trq1;
   float trq2;
+  float motor_temp = sd_.temp1_C;
+  float housing_temp = sd_.temp2_C;
 
   if (replies.size() == 2){
     auto& reply1 = replies[0];
@@ -591,18 +648,42 @@ bool Dynamometer::safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInt
     trq1 = reply1.result.torque;
     trq2 = reply2.result.torque;
 
-    torque_disparity_shift_reg_ <<= 1;
-    if ((fabs(trq1) > 0.5 || fabs(trq2) > 0.5) && (fabs(trq2-trq1)/trq1 < actuator_torque_disparity_ratio_))
-      torque_disparity_shift_reg_ |= 0x01; // if torques are disparate, set lowest bit to high
-    else torque_disparity_shift_reg_ &= ~(0x01); // else set lowest bit to low
-    torque_disparity_shift_reg_ &= 0xFF;
-    safe &= (torque_disparity != 0xFF); // if all bits are high, register a disparity based unsafe state
+    float disparity = fabs(trq2-trq1)/trq1;
+
+    std::rotate(disparity_buffer.rbegin(),
+      disparity_buffer.rbegin()+1, disparity_buffer.rend());
+    disparity_buffer[0] = disparity;
+    disparity = 0;
+    for (float disp : disparity_buffer) disparity += disp;
+    disparity /= disparity_buffer.size();
+
+    if ((fabs(trq1) > 0.5 || fabs(trq2) > 0.5) 
+      && (fabs(trq2-trq1)/trq1 > actuator_torque_disparity_ratio_)) {
+      
+      // safe &= false;
+      std::cout << "torque disparity!! trq1 = " << trq1 << ", trq2 = " << trq2 << std::endl;
+    }    
   }
   else std::cerr << "safety check: incorrect number of replies: " << replies.size() << std::endl;
 
-  if (overtemp_latch && sd_.temp1_C < (max_motor_temp_C_ - 15) && sd_.temp2_C < (max_housing_temp_C_ - 15))
+  std::rotate(motor_temp_buffer.rbegin(),
+    motor_temp_buffer.rbegin()+1, motor_temp_buffer.rend());
+  motor_temp_buffer[0] = motor_temp;
+  motor_temp = 0;
+  for (float temp : motor_temp_buffer) motor_temp += temp;
+  motor_temp /= motor_temp_buffer.size();
+
+  std::rotate(housing_temp_buffer.rbegin(),
+    housing_temp_buffer.rbegin()+1, housing_temp_buffer.rend());
+  housing_temp_buffer[0] = housing_temp;
+  housing_temp = 0;
+  for (float temp : housing_temp_buffer) housing_temp += temp;
+  housing_temp /= housing_temp_buffer.size();
+
+
+  if (overtemp_latch && motor_temp < (max_motor_temp_C_ - 15) && housing_temp < (max_housing_temp_C_ - 15))
     overtemp_latch = false;
-  if (sd_.temp1_C > max_motor_temp_C_ || sd_.temp2_C > max_housing_temp_C_)
+  if (motor_temp > max_motor_temp_C_ || housing_temp > max_housing_temp_C_)
     overtemp_latch = true;
 
   safe &= !overtemp_latch;
@@ -614,8 +695,8 @@ bool Dynamometer::safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInt
   if(!safe) {
     std::cout << "unsafe condition detected!!" << std::endl;
     std::cout << "\tovertemp_latch = " << overtemp_latch
-      << ",\n\tsd_.temp1_C = " << sd_.temp1_C
-      << ",\n\tsd_.temp2_C = " << sd_.temp2_C
+      << ",\n\tmotor_temp = " << motor_temp
+      << ",\n\thousing_temp = " << housing_temp
       << ",\n\tmax_motor_temp_C_ = " <<  max_motor_temp_C_
       << ",\n\tmax_housing_temp_C_ = " <<  max_housing_temp_C_
       << ",\n\ttrq1 = " <<  trq1

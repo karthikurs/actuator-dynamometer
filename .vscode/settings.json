@@ -59,6 +59,7 @@
     "regex": "cpp",
     "forward_list": "cpp",
     "valarray": "cpp",
-    "csignal": "cpp"
+    "csignal": "cpp",
+    "codecvt": "cpp"
   }
 }
