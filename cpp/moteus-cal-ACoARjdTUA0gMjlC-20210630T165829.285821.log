@@ -79,15 +79,15 @@
       -1.402408312932403
     ]
   },
-  "winding_resistance": 1.4,
-  "inductance": 0.0006439670063023988,
+  "winding_resistance": 0.6520978389678254,
+  "inductance": 0.0007477887621199011,
   "pid_dq_kp": 0.2,
-  "pid_dq_ki": 420.745993879574,
-  "torque_bw_hz": 49.42953335629689,
+  "pid_dq_ki": 174.40696410553105,
+  "torque_bw_hz": 42.566818640255605,
   "encoder_filter_bw_hz": 100,
   "encoder_filter_kp": 1256.6370614359173,
   "encoder_filter_ki": 394784.17604357435,
-  "v_per_hz": 0.4229067033678567,
-  "kv": 70.93763177810193,
+  "v_per_hz": 0.39378687939335855,
+  "kv": 76.18334071012211,
   "unwrapped_position_scale": 1.0
 }

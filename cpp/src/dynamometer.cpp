@@ -341,7 +341,7 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.feedforward_torque = trq;
       
-      cmdb.kp_scale = 1; cmdb.kd_scale = 1;
+      cmdb.kp_scale = 2; cmdb.kd_scale = 2;
       cmdb.position = std::numeric_limits<double>::quiet_NaN();
       cmdb.velocity = -vel;
       cmdb.feedforward_torque = 0;
@@ -388,7 +388,7 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       // cmda.velocity = std::numeric_limits<double>::quiet_NaN();
       cmda.feedforward_torque = trq_condition;
       
-      cmdb.kp_scale = 1; cmdb.kd_scale = 1;
+      cmdb.kp_scale = 2; cmdb.kd_scale = 2;
       cmdb.position = std::numeric_limits<double>::quiet_NaN();
       cmdb.velocity = -vel_condition;
       cmdb.feedforward_torque = 0;
@@ -530,7 +530,7 @@ void Dynamometer::sample_sensors() {
     float Vt = ads_.computeVolts(adc);
     // thermistor resistance
     float Rt = Rf*Vt / (V0 - Vt);
-    sd_.temp1_C = (1.0/298.15) + (1.0/3950.0)*log10(Rt/R0);
+    sd_.temp1_C = (1.0/298.15) + (1.0/3950.0)*log(Rt/R0);
     sd_.temp1_C = 1.0/sd_.temp1_C - 273.15;
 
     adc = ads_.readADC_SingleEnded(3);

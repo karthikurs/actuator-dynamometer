@@ -92,7 +92,19 @@ def main() :
         if args.minicheetah :
             fig = plt.figure()
             ax = fig.gca()
-            ax.plot(data["velocity [rad/s]"])
+            # ax.plot(data["velocity [rad/s]"])
+            time = np.array(data["time [s]"])
+            v1 = np.array(data["a1 velocity [rad/s]"])
+            v2 = np.array(data["a2 velocity [rad/s]"])
+            ax.plot(time, v1)
+            ax.plot(time, -v2)
+            p1 = np.array(data["a1 position [rad]"])
+            p2 = np.array(data["a2 position [rad]"])
+            fig = plt.figure()
+            ax = fig.gca()
+            p2 = -p2
+            ax.plot(time, p1-(p2 - (p2[0]-p1[0])))
+            # ax.plot(time, -p2)
             plt.show()
         while True:
             options = input('\t> ')
