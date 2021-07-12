@@ -158,6 +158,10 @@ class Dynamometer {
   inline uint8_t get_actuator_a_id() {return actuator_a_id;}
 
   inline DurabilityTestState get_dts() {return dts;}
+  
+  inline bool get_end_program() {return end_program;}
+
+  void print_status_update();
 
   bool safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInterface::ServoReply>& replies);
 
@@ -209,6 +213,8 @@ class Dynamometer {
   double fsm_program_timer_end = 0;
   double fsm_function_timer_end = 0;
 
+  float encoder_offset = 0;
+
   float kFollow_duration_S = 0;
   float kDurabilityGRP_duration_S = 0;
   float kTorqueVelSweep_condition_duration_S = 0;
@@ -234,4 +240,7 @@ class Dynamometer {
   float trd605_18_max_torque_Nm_;
   float actuator_torque_disparity_ratio_;
   std::vector<float> disparity_buffer;
+
+  uint32_t num_swaps = 0;
+  bool end_program = false;
 };

@@ -153,6 +153,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
   uint64_t total_skip_count = 0;
   double total_margin = 0.0;
   uint64_t margin_cycles = 0;
+  uint64_t reply_miss_count = 0;
 
   std::string c1_str = "";
   std::string c2_str = "";
@@ -178,7 +179,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
   }
 
   // * MAIN LOOP *
-  while (!interrupted && dynamometer->get_program_time() < dynset.duration_s) {
+  while (!interrupted && dynamometer->get_program_time() < dynset.duration_s && !dynamometer->get_end_program()) {
     cycle_count++;
     margin_cycles++;
     // Terminal status update
@@ -190,6 +191,8 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
         total_margin = 0;
         margin_cycles = 0;
         // data_file.flush();
+
+        dynamometer->print_status_update();
       }
 
       int skip_count = 0;
@@ -253,6 +256,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
     can_result = promise->get_future();
 
     if (cycle_count > 5 && saved_replies.size() >= 2) {
+      reply_miss_count = 0;
       uint8_t cmd1_idx = (saved_commands.at(0).id == 1) ? 0 : 1;
       uint8_t cmd2_idx = (cmd1_idx == 0) ? 1 : 0;
       uint8_t rpl1_idx = (saved_replies.at(0).id == 1) ? 0 : 1;
@@ -284,6 +288,13 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
     else if (cycle_count > 5 && saved_replies.size() < 2) {
       // data_file << "# missing moteus reply" << std::endl;
       std::cout << "# missing moteus reply" << std::endl;
+      reply_miss_count++;
+    }
+
+    // kill loop if we miss all these replies
+    if (reply_miss_count > 20) {
+      break;
+      std::cout << "missed too many replies! ending..." << std::endl;
     }
 
     if (cycle_count > 1) std::copy(commands.begin(), commands.end(), saved_commands.begin());

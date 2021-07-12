@@ -246,6 +246,10 @@ void Dynamometer::Run(const std::vector<MoteusInterface::ServoReply>& status,
     }
     return;
   }
+  if (cycle_count_ > 2 && cycle_count_ < 10) {
+    encoder_offset = status[0].result.position + status[1].result.position;
+    std::cout << "initial encoder offset = " << encoder_offset << std::endl;
+  }
 
   // Then we make the actuator2 servo mirror the actuator1 servo.
   const auto actuator_a = Get(status, actuator_a_id);
@@ -304,6 +308,10 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
         std::cout << "transitioning from Idle to DurabilityTorqueVelSweep; actuator "
           << (int)actuator_a_id << " driving\n";
       }
+      if (num_swaps >= 2) {
+        std::cout << "ran thru one cycle for each actuator; exiting..." << std::endl;
+        end_program = true;
+      }
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.position = std::numeric_limits<double>::quiet_NaN();
       cmda.feedforward_torque = 0;
@@ -331,6 +339,7 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
         std::cout << "looping replay file and swapping actuators (30s pause)..." << std::endl;
         replay_idx = 0;
         swap_actuators();
+        num_swaps++;
         start_fsm_function_timer(30);
         dts = DurabilityTestState::kIdle;
         dts_after_idle = DurabilityTestState::kFollow;
@@ -661,8 +670,19 @@ bool Dynamometer::safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInt
       && (fabs(trq2-trq1)/trq1 > actuator_torque_disparity_ratio_)) {
       
       // safe &= false;
-      std::cout << "torque disparity!! trq1 = " << trq1 << ", trq2 = " << trq2 << std::endl;
+      // std::cout << "torque disparity!! trq1 = " << trq1 << ", trq2 = " << trq2 << std::endl;
     }    
+    // check for moteus faults:
+    // in a fault condition, we latch unsafe and 
+    // commands are set to stop mode until the fault clears
+    safe &= (reply1.result.fault == 0);
+    safe &= (reply2.result.fault == 0);
+
+    float current_encoder_offset = reply1.result.position + reply2.result.position;
+
+    // latch unsafe if encoder offset changes by more than 0.05 rotations,
+    // which represents a rotor slip
+    safe &= (fabs(current_encoder_offset - encoder_offset) < 0.05);
   }
   else std::cerr << "safety check: incorrect number of replies: " << replies.size() << std::endl;
 
@@ -680,32 +700,46 @@ bool Dynamometer::safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInt
   for (float temp : housing_temp_buffer) housing_temp += temp;
   housing_temp /= housing_temp_buffer.size();
 
-
   if (overtemp_latch && motor_temp < (max_motor_temp_C_ - 15) && housing_temp < (max_housing_temp_C_ - 15))
     overtemp_latch = false;
   if (motor_temp > max_motor_temp_C_ || housing_temp > max_housing_temp_C_)
     overtemp_latch = true;
 
   safe &= !overtemp_latch;
+
   if (dynset_.tqsen == Dynamometer::TorqueSensor::kTRS605_5)
     safe &= sd_.torque_Nm < trs605_5_max_torque_Nm_;
   if (dynset_.tqsen == Dynamometer::TorqueSensor::kTRD605_18)
     safe &= sd_.torque_Nm < trd605_18_max_torque_Nm_;
+  // safe if voltages are above 32.0V and not 0 (initialized value/i2c error)
+  safe &= (sd_.ina1_voltage_V > 32.0 || sd_.ina1_voltage_V < 1.0);
+  safe &= (sd_.ina2_voltage_V > 32.0 || sd_.ina2_voltage_V < 1.0);
+
   dynamometer_safe = safe;
   if(!safe) {
     std::cout << "unsafe condition detected!!" << std::endl;
     std::cout << "\tovertemp_latch = " << overtemp_latch
       << ",\n\tmotor_temp = " << motor_temp
       << ",\n\thousing_temp = " << housing_temp
-      << ",\n\tmax_motor_temp_C_ = " <<  max_motor_temp_C_
-      << ",\n\tmax_housing_temp_C_ = " <<  max_housing_temp_C_
       << ",\n\ttrq1 = " <<  trq1
       << ",\n\ttrq2 = " <<  trq2 << std::endl;
-
   }
   return safe;
 }
 
+void Dynamometer::print_status_update() {
+  std::cout << "t_prog: "
+    << std::setw(8) << std::setprecision(3) << std::fixed << t_prog_s_
+    << " | t_func: "
+    << std::setw(8) << std::setprecision(3) << std::fixed << t_func_s_;
+  if (dynset_.testmode == Dynamometer::TestMode::kDurability) {
+    std::cout << " | dts: "
+      << std::setw(3) << std::setprecision(2) << std::fixed << (int)dts;
+  }
+  std::cout << "\r";
+  std::cout.flush();
+  return;
+}
 
 void ConfigureRealtime(const uint8_t realtime) {
   {

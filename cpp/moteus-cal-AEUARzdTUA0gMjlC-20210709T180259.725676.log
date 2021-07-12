@@ -1,12 +1,12 @@
 {
-  "timestamp": "2021-06-30 16:58:29.285821",
+  "timestamp": "2021-07-09 18:02:59.725676",
   "device_info": {
-    "serial_number": "ACoARjdTUA0gMjlC",
+    "serial_number": "AEUARzdTUA0gMjlC",
     "model": "600",
     "git_hash": "33ce490dd994e5008ae6fe8a5d8dd079a4848503",
     "git_dirty": false,
     "git_timestamp": 1620087252,
-    "uuid": "169c72b6-02a2-498f-b1e6-bee83219dd2f"
+    "uuid": "f74050cd-d8ae-405b-bba2-76605330beb8"
   },
   "calibration": {
     "invert": false,
@@ -79,15 +79,15 @@
       -2.847053519726328
     ]
   },
-  "winding_resistance": 1.4,
-  "inductance": 0.0006439670063023988,
+  "winding_resistance": 0.7651687500404493,
+  "inductance": 0.0007212905471236707,
   "pid_dq_kp": 0.2,
-  "pid_dq_ki": 420.745993879574,
-  "torque_bw_hz": 49.42953335629689,
+  "pid_dq_ki": 212.16658199438606,
+  "torque_bw_hz": 44.13060554489897,
   "encoder_filter_bw_hz": 100,
   "encoder_filter_kp": 1256.6370614359173,
   "encoder_filter_ki": 394784.17604357435,
-  "v_per_hz": 0.4229067033678567,
-  "kv": 70.93763177810193,
+  "v_per_hz": 0.4437439091474543,
+  "kv": 67.60656176134943,
   "unwrapped_position_scale": 1.0
 }
