@@ -202,7 +202,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
       }
       total_skip_count += skip_count;
       if (skip_count) {
-        std::cout << "Skipped " << total_skip_count << "/" << cycle_count <<" cycles in total\n";
+        std::cout << "Skipped " << total_skip_count << "/" << cycle_count <<" cycles in total" << std::endl;
         // data_file << "\n# Skipped " << skip_count << " cycles\n";
       }
       if (skip_count > 50) {
@@ -287,7 +287,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
     }
     else if (cycle_count > 5 && saved_replies.size() < 2) {
       // data_file << "# missing moteus reply" << std::endl;
-      std::cout << "# missing moteus reply" << std::endl;
+      // std::cout << "# missing moteus reply" << std::endl;
       reply_miss_count++;
     }
 
@@ -301,6 +301,13 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
     dynamometer->safety_check(saved_replies);
   }
   // IF INTERRUPTED
+  std::cout << std::endl << "exiting..." << std::endl;
+
+  // while (!can_result.valid()) {
+  //   // do nothing
+  // }
+  // for (auto& cmd : moteus_data.commands) cmd.mode = moteus::Mode::kStopped;
+  // moteus_interface.Cycle(moteus_data, nullptr);
   data_file.close();
   std::exit(EXIT_SUCCESS);
 }

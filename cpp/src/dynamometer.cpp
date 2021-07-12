@@ -63,6 +63,51 @@ using MoteusInterface = moteus::Pi3HatMoteusInterface;
 using json = nlohmann::json;
 
 
+#include <ostream>
+namespace Color {
+  enum Code {
+    FG_BLACK    = 30,
+    FG_RED      = 31,
+    FG_GREEN    = 32,
+    FG_YELLOW   = 33,
+    FG_BLUE     = 34,
+    FG_DEFAULT  = 39,
+    BG_RED      = 41,
+    BG_GREEN    = 42,
+    BG_YELLOW   = 43,
+    BG_BLUE     = 44,
+    BG_WHITE    = 47,
+    BG_DEFAULT  = 49
+  };
+  class Modifier {
+    Code code;
+  public:
+    Modifier(Code pCode) : code(pCode) {}
+    friend std::ostream&
+    operator<<(std::ostream& os, const Modifier& mod) {
+      return os << "\033[" << mod.code << "m";
+    }
+    Modifier& operator=(const Modifier& mod) {
+      this->code = mod.code;
+      return *this;
+    }
+  };
+}
+
+Color::Modifier fg_blk(Color::FG_BLACK);
+Color::Modifier fg_red(Color::FG_RED);
+Color::Modifier fg_grn(Color::FG_GREEN);
+Color::Modifier fg_blu(Color::FG_BLUE);
+Color::Modifier fg_yel(Color::FG_YELLOW);
+Color::Modifier fg_def(Color::FG_DEFAULT);
+
+Color::Modifier bg_red(Color::BG_RED);
+Color::Modifier bg_grn(Color::BG_GREEN);
+Color::Modifier bg_blu(Color::BG_BLUE);
+Color::Modifier bg_yel(Color::BG_YELLOW);
+Color::Modifier bg_wht(Color::BG_WHITE);
+Color::Modifier bg_def(Color::BG_DEFAULT);
+
 void LockMemory() {
   // We lock all memory so that we don't end up having to page in
   // something later which can take time.
@@ -239,16 +284,26 @@ void Dynamometer::Run(const std::vector<MoteusInterface::ServoReply>& status,
   // sample sensors and store data
   sample_sensors();
   // std::cout << "sampled sensors" << std::endl;
+  if (!encoder_offset_set) {
+    if (status.size() >= 2) {
+      encoder_offset = status[0].result.position + status[1].result.position;
+      std::cout << "initial encoder offset = " << encoder_offset << std::endl;
+      encoder_offset_set = true;
+    }
+    else {
+      for (auto& cmd : *output) {
+        // We start everything with a stopped command to clear faults.
+        cmd.mode = moteus::Mode::kStopped;
+      }
+      return;
+    };
+  }
   if (cycle_count_ < 5 || !dynamometer_safe) {
     for (auto& cmd : *output) {
       // We start everything with a stopped command to clear faults.
       cmd.mode = moteus::Mode::kStopped;
     }
     return;
-  }
-  if (cycle_count_ > 2 && cycle_count_ < 10) {
-    encoder_offset = status[0].result.position + status[1].result.position;
-    std::cout << "initial encoder offset = " << encoder_offset << std::endl;
   }
 
   // Then we make the actuator2 servo mirror the actuator1 servo.
@@ -293,20 +348,17 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       if (fsm_func_now > fsm_function_timer_end && dts_after_idle == DurabilityTestState::kFollow) {
         start_fsm_function_timer(kFollow_duration_S);
         dts = DurabilityTestState::kFollow;
-        std::cout << "transitioning from Idle to Follow; actuator "
-          << (int)actuator_a_id << " driving\n";
+        std::cout << std::endl << "transitioning from Idle to Follow" << std::endl;
       }
       else if (fsm_func_now > fsm_function_timer_end && dts_after_idle == DurabilityTestState::kDurabilityGRP) {
         start_fsm_function_timer(kDurabilityGRP_duration_S);
         dts = DurabilityTestState::kDurabilityGRP;
-        std::cout << "transitioning from Idle to DurabilityGRP; actuator "
-          << (int)actuator_a_id << " driving\n";
+        std::cout << std::endl << "transitioning from Idle to DurabilityGRP" << std::endl;
       }
       else if (fsm_func_now > fsm_function_timer_end && dts_after_idle == DurabilityTestState::kDurabilityTorqueVelSweep) {
         start_fsm_function_timer(kTorqueVelSweep_condition_duration_S);
         dts = DurabilityTestState::kDurabilityTorqueVelSweep;
-        std::cout << "transitioning from Idle to DurabilityTorqueVelSweep; actuator "
-          << (int)actuator_a_id << " driving\n";
+        std::cout << std::endl << "transitioning from Idle to DurabilityTorqueVelSweep" << std::endl;
       }
       if (num_swaps >= 2) {
         std::cout << "ran thru one cycle for each actuator; exiting..." << std::endl;
@@ -326,8 +378,7 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
         start_fsm_function_timer(10);
         dts = DurabilityTestState::kIdle;
         dts_after_idle = DurabilityTestState::kDurabilityGRP;
-        std::cout << "transitioning from Follow to Idle; actuator "
-          << (int)actuator_a_id << " driving\n";
+        std::cout << std::endl << "transitioning from Follow to Idle" << std::endl;
       }
       // step index
       // get new torque and vel values
@@ -343,8 +394,7 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
         start_fsm_function_timer(30);
         dts = DurabilityTestState::kIdle;
         dts_after_idle = DurabilityTestState::kFollow;
-        std::cout << "transitioning from Follow to Idle; actuator "
-          << (int)actuator_a_id << " driving\n";
+        std::cout << std::endl << "transitioning from Follow to Idle" << std::endl;
       }
       
       cmda.kp_scale = 0; cmda.kd_scale = 0;
@@ -363,8 +413,7 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
         start_fsm_function_timer(10);
         dts = DurabilityTestState::kIdle;
         dts_after_idle = DurabilityTestState::kDurabilityTorqueVelSweep;
-        std::cout << "transitioning from DurabilityGRP to Idle; actuator "
-          << (int)actuator_a_id << " driving\n";
+        std::cout << std::endl << "transitioning from DurabilityGRP to Idle" << std::endl;
       }
       float rand_cmd = filtered_random();
       
@@ -380,8 +429,7 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
         start_fsm_function_timer(10);
         dts = DurabilityTestState::kIdle;
         dts_after_idle = DurabilityTestState::kFollow;
-        std::cout << "transitioning from DurabilityTorqueVelSweep to Idle; actuator "
-          << (int)actuator_a_id << " driving\n";
+        std::cout << std::endl << "transitioning from DurabilityTorqueVelSweep to Idle" << std::endl;
         sweep_idx = 0; // reset index for next round
       }
       // incremember condition when there is room to increment and
@@ -684,7 +732,7 @@ bool Dynamometer::safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInt
     // which represents a rotor slip
     safe &= (fabs(current_encoder_offset - encoder_offset) < 0.05);
   }
-  else std::cerr << "safety check: incorrect number of replies: " << replies.size() << std::endl;
+  else std::cout << "safety check: incorrect number of replies: " << replies.size() << std::endl;
 
   std::rotate(motor_temp_buffer.rbegin(),
     motor_temp_buffer.rbegin()+1, motor_temp_buffer.rend());
@@ -717,26 +765,49 @@ bool Dynamometer::safety_check(const std::vector<mjbots::moteus::Pi3HatMoteusInt
 
   dynamometer_safe = safe;
   if(!safe) {
-    std::cout << "unsafe condition detected!!" << std::endl;
-    std::cout << "\tovertemp_latch = " << overtemp_latch
-      << ",\n\tmotor_temp = " << motor_temp
-      << ",\n\thousing_temp = " << housing_temp
-      << ",\n\ttrq1 = " <<  trq1
-      << ",\n\ttrq2 = " <<  trq2 << std::endl;
+    // std::cout << "unsafe condition detected!!" << std::endl;
+    // std::cout << "\tovertemp_latch = " << overtemp_latch
+    //   << ",\n\tmotor_temp = " << motor_temp
+    //   << ",\n\thousing_temp = " << housing_temp
+    //   << ",\n\ttrq1 = " <<  trq1
+    //   << ",\n\ttrq2 = " <<  trq2 << std::endl;
   }
   return safe;
 }
 
 void Dynamometer::print_status_update() {
-  std::cout << "t_prog: "
-    << std::setw(8) << std::setprecision(3) << std::fixed << t_prog_s_
-    << " | t_func: "
-    << std::setw(8) << std::setprecision(3) << std::fixed << t_func_s_;
+  Color::Modifier bg_temp_m(Color::BG_DEFAULT);
+  Color::Modifier bg_temp_h(Color::BG_DEFAULT);
+  Color::Modifier bg_safe(Color::BG_DEFAULT);
+  
+  std::cout << fg_blk << bg_wht << "  t_p:"
+    << std::setw(7) << std::setprecision(1) << std::fixed << t_prog_s_
+    << "|t_f:"
+    << std::setw(7) << std::setprecision(1) << std::fixed << t_func_s_
+    << fg_def << bg_def << "|" ;
   if (dynset_.testmode == Dynamometer::TestMode::kDurability) {
-    std::cout << " | dts: "
-      << std::setw(3) << std::setprecision(2) << std::fixed << (int)dts;
+    std::cout << "dts:"
+      << std::setw(2) << std::setprecision(2) << std::fixed << (int)dts << "|";
   }
-  std::cout << "\r";
+  float temp_m = sd_.temp1_C;
+  float temp_h = sd_.temp2_C;
+  if (temp_m < 40) bg_temp_m = bg_grn;
+  else if (temp_m < 60) bg_temp_m = bg_yel;
+  else bg_temp_m = bg_red;
+
+  if (temp_h < 40) bg_temp_h = bg_grn;
+  else if (temp_h < 60) bg_temp_h = bg_yel;
+  else bg_temp_h = bg_red;
+  std::cout << "temp_m:" << bg_temp_m << fg_blk 
+    << std::setw(5) << std::setprecision(1) << std::fixed << temp_m << fg_def << bg_def
+    << "|temp_h:" << bg_temp_h << fg_blk 
+    << std::setw(5) << std::setprecision(1) << std::fixed << temp_h << fg_def << bg_def
+    << "|driving id: "
+    << bg_blu << fg_def << (int)actuator_a_id << bg_def;
+  
+  if (dynamometer_safe) std::cout << "|" << bg_grn << fg_blk << "**SAFE**";
+  else std::cout << "|" << bg_red << fg_blk << "*UNSAFE*";
+  std::cout << fg_def << bg_def << "\r";
   std::cout.flush();
   return;
 }

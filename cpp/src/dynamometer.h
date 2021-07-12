@@ -231,6 +231,7 @@ class Dynamometer {
 
   bool overtemp_latch = false;
   bool dynamometer_safe = true;
+  bool encoder_offset_set = false;
 
   float max_motor_temp_C_;
   std::vector<float> motor_temp_buffer; 
