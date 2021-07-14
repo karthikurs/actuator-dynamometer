@@ -56,6 +56,7 @@ class Dynamometer {
     kDirectDamping,
     kTorqueVelSweep,
     kDurability,
+    kStep,
     kManual,
     kNone
   };
@@ -169,6 +170,7 @@ class Dynamometer {
   nlohmann::json grp_j;
   nlohmann::json safety_j;
   nlohmann::json durability_j;
+  nlohmann::json step_j;
 
  private:
 
@@ -241,6 +243,11 @@ class Dynamometer {
   float trd605_18_max_torque_Nm_;
   float actuator_torque_disparity_ratio_;
   std::vector<float> disparity_buffer;
+
+  float step_mag_Nm_ = 1;
+  float step_temp_ceiling_C_ = 60;
+  float step_temp_floor_C_ = 30;
+  bool step_temp_latch = false;
 
   uint32_t num_swaps = 0;
   bool end_program = false;

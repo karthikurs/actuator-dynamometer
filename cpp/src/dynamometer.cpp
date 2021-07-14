@@ -43,6 +43,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <cctype>
 
 #include "mjbots/moteus/moteus_protocol.h"
 #include "mjbots/moteus/pi3hat_moteus_interface.h"
@@ -172,6 +173,13 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
   kTorqueVelSweep_velocities_rad_s = durability_j["kTorqueVelSweep_velocities_rad_s"].get<std::vector<float>>();
   kTorqueVelSweep_torques_Nm = durability_j["kTorqueVelSweep_torques_Nm"].get<std::vector<float>>();
 
+  std::ifstream step_if("configs/step.json");
+  step_if >> step_j;
+  step_mag_Nm_ = step_j["torque_step_mag_Nm"];
+  step_temp_ceiling_C_ = step_j["temp_ceiling_C"];
+  step_temp_floor_C_ = step_j["temp_floor_C"];
+
+
   for (float trq : kTorqueVelSweep_torques_Nm) {
     for (float vel : kTorqueVelSweep_velocities_rad_s) {
       std::cout << trq << ", " << vel << std::endl;
@@ -285,7 +293,7 @@ void Dynamometer::Run(const std::vector<MoteusInterface::ServoReply>& status,
   sample_sensors();
   // std::cout << "sampled sensors" << std::endl;
   if (!encoder_offset_set) {
-    if (status.size() >= 2) {
+    if (status.size() >= 2 && cycle_count_ >= 5) {
       encoder_offset = status[0].result.position + status[1].result.position;
       std::cout << "initial encoder offset = " << encoder_offset << std::endl;
       encoder_offset_set = true;
@@ -515,6 +523,22 @@ void Dynamometer::generate_commands(double time,
       run_durability_fsm(cmda, cmdb);
       break;
       }
+    case TestMode::kStep: {
+      cmda.kp_scale = 0; cmda.kd_scale = 0;
+      if (sd_.temp1_C > step_temp_ceiling_C_) step_temp_latch = true;
+      else if (sd_.temp1_C < step_temp_floor_C_ && step_temp_latch) step_temp_latch = false;
+
+      if (!step_temp_latch) cmda.feedforward_torque = step_mag_Nm_;
+      else cmda.feedforward_torque = 0;
+      cmda.position = std::numeric_limits<double>::quiet_NaN();
+      cmda.velocity = std::numeric_limits<double>::quiet_NaN();
+      
+      cmdb.kp_scale = 10; cmdb.kd_scale = 5;
+      cmdb.position = 0;
+      cmdb.velocity = std::numeric_limits<double>::quiet_NaN();
+      cmdb.feedforward_torque = 0;
+      break;
+      }
     case TestMode::kManual:
       break;
     case TestMode::kNone: {
@@ -553,8 +577,11 @@ float Dynamometer::filtered_random() {
 void Dynamometer::sample_sensors() {
   // TODO: Add temp read and calc
   sd_.torque_Nm = 0;
-  sd_.temp1_C = 0;
-  sd_.temp2_C = 0;
+  float t1 = 0;
+  float t2 = 0;
+  float alpha = 0.1;
+  // sd_.temp1_C = 0;
+  // sd_.temp2_C = 0;
 
   sd_.ina1_voltage_V = 0;
   sd_.ina1_current_A = 0;
@@ -577,6 +604,7 @@ void Dynamometer::sample_sensors() {
   }
   // conditions for temp sensors
   if (testmode != TestMode::kGRP) {
+    // TODO: put these into a config json
     float R0 = 100000;
     float T0 = 25;
     float Rf = 100000;
@@ -587,14 +615,19 @@ void Dynamometer::sample_sensors() {
     float Vt = ads_.computeVolts(adc);
     // thermistor resistance
     float Rt = Rf*Vt / (V0 - Vt);
-    sd_.temp1_C = (1.0/298.15) + (1.0/3950.0)*log(Rt/R0);
-    sd_.temp1_C = 1.0/sd_.temp1_C - 273.15;
+    t1 = (1.0/298.15) + (1.0/3950.0)*log(Rt/R0);
+    t1 = 1.0/t1 - 273.15;
+
+    // exp decay lpf
+    t1 = alpha*t1 + (1-alpha)*sd_.temp1_C;
 
     adc = ads_.readADC_SingleEnded(3);
     Vt = ads_.computeVolts(adc);
     Rt = Rf*Vt / (V0 - Vt);
-    sd_.temp2_C = (1.0/298.15) + (1.0/3950.0)*log10(Rt/R0);
-    sd_.temp2_C = 1.0/sd_.temp2_C - 273.15;
+    t2 = (1.0/298.15) + (1.0/3950.0)*log10(Rt/R0);
+    t2 = 1.0/t2 - 273.15;
+
+    t2 = alpha*t1 + (1-alpha)*sd_.temp1_C;
     // std::cout << "sd_.temp1_C - " << sd_.temp1_C << ",\n"
     //   << "sd_.temp2_C = " << sd_.temp2_C << ",\n"
     //   << "Vt = " << Vt << ",\n"
@@ -613,6 +646,8 @@ void Dynamometer::sample_sensors() {
     sd_.ina2_current_A = ina2_.readCurrent()/1000;
     sd_.ina2_power_W = sd_.ina2_current_A * sd_.ina2_voltage_V;
   }
+  sd_.temp1_C = t1;
+  sd_.temp2_C = t2;
 }
 
 std::string Dynamometer::stringify_sensor_data() {
@@ -659,18 +694,23 @@ void Dynamometer::parse_settings(cxxopts::ParseResult dyn_opts) {
   dynset_.actuator_2_bus = dyn_opts["actuator-2-bus"].as<uint8_t>();
 
   auto test_str = dyn_opts["test-mode"].as<std::string>();
+  // case invariance -- convert to user input to lowercase
+  std::transform(test_str.begin(), test_str.end(), test_str.begin(),
+    [](unsigned char c){ return std::tolower(c); });
 
   // std::cout << test_str << (test_str == std::string("TV-sweep")) << std::endl;
-  if (test_str == std::string("KT")) {
+  if (test_str == std::string("kt")) {
     dynset_.testmode = TestMode::kTorqueConstant; std::cout << "test mode " << test_str << " selected" << std::endl;
-  } else if (test_str == std::string("GRP")) {
+  } else if (test_str == std::string("grp")) {
     dynset_.testmode = TestMode::kGRP; std::cout << "test mode " << test_str << " selected" << std::endl;
   } else if (test_str == std::string("direct-damping")) {
     dynset_.testmode = TestMode::kDirectDamping; std::cout << "test mode " << test_str << " selected" << std::endl;
-  } else if (test_str == std::string("TV-sweep")) {
+  } else if (test_str == std::string("tv-sweep")) {
     dynset_.testmode = TestMode::kTorqueVelSweep; std::cout << "test mode " << test_str << " selected" << std::endl;
-  } else if (test_str == std::string("Durability")) {
+  } else if (test_str == std::string("durability")) {
     dynset_.testmode = TestMode::kDurability; std::cout << "test mode " << test_str << " selected" << std::endl;
+  } else if (test_str == std::string("step")) {
+    dynset_.testmode = TestMode::kStep; std::cout << "test mode " << test_str << " selected" << std::endl;
   } else if (test_str == std::string("manual")) {
     dynset_.testmode = TestMode::kManual; std::cout << "test mode " << test_str << " selected" << std::endl;
   } else {

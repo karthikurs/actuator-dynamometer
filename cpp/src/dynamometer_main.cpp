@@ -182,6 +182,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
   while (!interrupted && dynamometer->get_program_time() < dynset.duration_s && !dynamometer->get_end_program()) {
     cycle_count++;
     margin_cycles++;
+    // std::cout << "loop" << std::endl;
     // Terminal status update
     {
       const auto now = std::chrono::steady_clock::now();
