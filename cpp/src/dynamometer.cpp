@@ -530,12 +530,12 @@ void Dynamometer::generate_commands(double time,
 
       if (!step_temp_latch) cmda.feedforward_torque = step_mag_Nm_;
       else cmda.feedforward_torque = 0;
-      cmda.position = std::numeric_limits<double>::quiet_NaN();
-      cmda.velocity = std::numeric_limits<double>::quiet_NaN();
+      cmda.position = 0;
+      cmda.velocity = 0;
       
       cmdb.kp_scale = 10; cmdb.kd_scale = 5;
       cmdb.position = 0;
-      cmdb.velocity = std::numeric_limits<double>::quiet_NaN();
+      cmdb.velocity = 0;
       cmdb.feedforward_torque = 0;
       break;
       }
