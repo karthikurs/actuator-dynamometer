@@ -182,7 +182,7 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
 
   for (float trq : kTorqueVelSweep_torques_Nm) {
     for (float vel : kTorqueVelSweep_velocities_rad_s) {
-      std::cout << trq << ", " << vel << std::endl;
+      // std::cout << trq << ", " << vel << std::endl;
       sweep_trq.push_back(trq);
       sweep_trq.push_back(trq);
       sweep_trq.push_back(0);
@@ -536,6 +536,11 @@ void Dynamometer::generate_commands(double time,
       cmdb.kp_scale = 10; cmdb.kd_scale = 1;
       cmdb.position = 0;
       cmdb.velocity = 0;
+
+      // these commands for slow turn (maybe even heat distribution?)
+      cmdb.kp_scale = 1; cmdb.kd_scale = 4;
+      cmdb.position = std::numeric_limits<double>::quiet_NaN();
+      cmdb.velocity = -1;
       // cmdb.velocity = std::numeric_limits<double>::quiet_NaN();
       cmdb.feedforward_torque = 0;
       break;
@@ -614,11 +619,17 @@ void Dynamometer::sample_sensors() {
     ads_.prime_i2c();
     uint16_t adc = ads_.readADC_SingleEnded(2);
     float Vt = ads_.computeVolts(adc);
+    if (std::isnan(Vt)) std::cout << "\n nan temp 0" << std::endl;
     // thermistor resistance
     float Rt = Rf*Vt / (V0 - Vt);
+    if (std::isnan(Rt)) std::cout << "\n nan temp 1" << std::endl;
+    
     t1 = (1.0/298.15) + (1.0/3950.0)*log(Rt/R0);
-    t1 = 1.0/t1 - 273.15;
-
+    if (std::isnan(t1)) t1 = sd_.temp1_C;
+    else {
+      t1 = 1.0/t1 - 273.15;
+      if (std::isnan(t1)) std::cout << "\n nan temp 3" << std::endl;
+    }
     // exp decay lpf
     t1 = alpha*t1 + (1-alpha)*sd_.temp1_C;
 
@@ -626,7 +637,8 @@ void Dynamometer::sample_sensors() {
     Vt = ads_.computeVolts(adc);
     Rt = Rf*Vt / (V0 - Vt);
     t2 = (1.0/298.15) + (1.0/3950.0)*log10(Rt/R0);
-    t2 = 1.0/t2 - 273.15;
+    if (std::isnan(t2)) t2 = sd_.temp1_C;
+    else t2 = 1.0/t2 - 273.15;
 
     t2 = alpha*t2 + (1-alpha)*sd_.temp2_C;
     // std::cout << "sd_.temp1_C - " << sd_.temp1_C << ",\n"
@@ -700,24 +712,19 @@ void Dynamometer::parse_settings(cxxopts::ParseResult dyn_opts) {
     [](unsigned char c){ return std::tolower(c); });
 
   // std::cout << test_str << (test_str == std::string("TV-sweep")) << std::endl;
-  if (test_str == std::string("kt")) {
-    dynset_.testmode = TestMode::kTorqueConstant; std::cout << "test mode " << test_str << " selected" << std::endl;
-  } else if (test_str == std::string("grp")) {
-    dynset_.testmode = TestMode::kGRP; std::cout << "test mode " << test_str << " selected" << std::endl;
-  } else if (test_str == std::string("direct-damping")) {
-    dynset_.testmode = TestMode::kDirectDamping; std::cout << "test mode " << test_str << " selected" << std::endl;
-  } else if (test_str == std::string("tv-sweep")) {
-    dynset_.testmode = TestMode::kTorqueVelSweep; std::cout << "test mode " << test_str << " selected" << std::endl;
-  } else if (test_str == std::string("durability")) {
-    dynset_.testmode = TestMode::kDurability; std::cout << "test mode " << test_str << " selected" << std::endl;
-  } else if (test_str == std::string("step")) {
-    dynset_.testmode = TestMode::kStep; std::cout << "test mode " << test_str << " selected" << std::endl;
-  } else if (test_str == std::string("manual")) {
-    dynset_.testmode = TestMode::kManual; std::cout << "test mode " << test_str << " selected" << std::endl;
-  } else {
-    dynset_.testmode = TestMode::kNone;  std::cout << "no test mode selected. exiting..." << std::endl;
+  if (test_str == std::string("kt")) dynset_.testmode = TestMode::kTorqueConstant;
+  else if (test_str == std::string("grp")) dynset_.testmode = TestMode::kGRP;
+  else if (test_str == std::string("direct-damping")) dynset_.testmode = TestMode::kDirectDamping;
+  else if (test_str == std::string("tv-sweep")) dynset_.testmode = TestMode::kTorqueVelSweep;
+  else if (test_str == std::string("durability")) dynset_.testmode = TestMode::kDurability;
+  else if (test_str == std::string("step")) dynset_.testmode = TestMode::kStep;
+  else if (test_str == std::string("manual")) dynset_.testmode = TestMode::kManual;
+  else {
+    dynset_.testmode = TestMode::kNone;
+    std::cout << "no test mode selected (input was \"" << test_str << "\"). exiting..." << std::endl;
     exit(1);
   }
+  std::cout << "test mode \"" << test_str << "\" selected" << std::endl;
   
   auto tqsen_str = dyn_opts["torquesensor"].as<std::string>();
   if (tqsen_str == std::string("trd605-18")) dynset_.tqsen = TorqueSensor::kTRD605_18;
@@ -821,6 +828,8 @@ void Dynamometer::print_status_update() {
   Color::Modifier bg_temp_h(Color::BG_DEFAULT);
   Color::Modifier bg_safe(Color::BG_DEFAULT);
   
+  Color::Modifier bg_temp_latch(Color::BG_DEFAULT);
+
   std::cout << fg_blk << bg_wht << "  t_p:"
     << std::setw(7) << std::setprecision(1) << std::fixed << t_prog_s_
     << "|t_f:"
@@ -829,7 +838,14 @@ void Dynamometer::print_status_update() {
   if (dynset_.testmode == Dynamometer::TestMode::kDurability) {
     std::cout << "dts:"
       << std::setw(2) << std::setprecision(2) << std::fixed << (int)dts << "|";
+  } else if (dynset_.testmode == Dynamometer::TestMode::kStep) {
+    if (step_temp_latch) bg_temp_latch = bg_red;
+    else bg_temp_latch = bg_grn;
+    std::cout << "temp latch:"
+      << std::setw(2) << std::setprecision(2) << std::fixed 
+        << bg_temp_latch << (int)step_temp_latch << bg_def << "|";
   }
+
   float temp_m = sd_.temp1_C;
   float temp_h = sd_.temp2_C;
   if (temp_m < 40) bg_temp_m = bg_grn;

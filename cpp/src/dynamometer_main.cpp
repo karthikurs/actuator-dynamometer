@@ -317,7 +317,7 @@ void Run(Dynamometer* dynamometer, std::ofstream& data_file) {
 int main(int argc, char** argv) {
   auto options = dyn_opts();
   auto opts = options.parse(argc, argv);
-  std::cout << opts["comment"].as<std::string>() << std::endl;
+  std::cout << "user comment: " << opts["comment"].as<std::string>() << std::endl;
 
   std::chrono::time_point<std::chrono::system_clock> now = std::chrono::system_clock::now();
   std::time_t nowc = std::chrono::system_clock::to_time_t(now);
@@ -376,7 +376,9 @@ int main(int argc, char** argv) {
   data_file << "# durability.json:\n#     " << dynamometer.durability_j << std::endl;
   if (dynset.testmode == Dynamometer::TestMode::kDurability)
     data_file << "# replay file:\n#     " << opts["replay-file"].as<std::string>() << std::endl;
-  
+  if (dynset.testmode == Dynamometer::TestMode::kStep)
+    data_file << "# step.json:\n#     " << dynamometer.step_j << std::endl;
+
 
   ConfigureRealtime(dynset.main_cpu);
   ConfigureRealtime(dynset.can_cpu);

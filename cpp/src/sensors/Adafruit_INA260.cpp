@@ -58,11 +58,11 @@ bool Adafruit_INA260::begin(uint8_t i2c_address) {
     return false;
   }
 
-  std::cerr << "ina begun" << std::endl;
+  // std::cerr << "ina begun" << std::endl;
 
   prime_i2c();
   reset();
-  std::cerr << "ina reset done" << std::endl;
+  // std::cerr << "ina reset done" << std::endl;
   return true;
 }
 /**************************************************************************/
