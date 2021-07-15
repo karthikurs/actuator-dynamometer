@@ -1,0 +1,23 @@
+# ./bin/dynamometer -c trying out step mode --test-mode tv-sweep --frequency 100 --duration 30.0 --gear1=6 --gear2=6 
+# 
+# user comment: trying out step mode
+# 
+# test mode: tv-sweep
+# period s: 0.01
+# duration s: 30
+# gear 1: 6
+# gear 2: 6
+# actuator 1 id: 1
+# actuator 2 id: 2
+# actuator 1 bus: 3
+# actuator 2 bus: 4
+# torque sensor: trs605-5
+# main cpu: 1
+# can cpu: 2
+# 
+# grp.json:
+#     {"butterworth_order":4,"cutoff_frequency_Hz":40,"random_sampling_frequency_Hz":40,"torque_amplitude_Nm":0.5}
+# safety_limits.json:
+#     {"actuator_torque_disparity_ratio":0.15,"max_housing_temp_C":100,"max_motor_temp_C":80,"trd605-18_max_torque_Nm":20,"trs605-5_max_torque_Nm":6}
+# durability.json:
+#     {"kDurabilityGRP_duration_S":30,"kFollow_duration_S":10,"kTorqueVelSweep_condition_duration_S":2,"kTorqueVelSweep_torques_Nm":[1.5,3.0],"kTorqueVelSweep_velocities_rad_s":[1.5,3.0]}

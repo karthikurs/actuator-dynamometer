@@ -1,0 +1,1 @@
+# ./bin/dynamometer -c trying out step mode --test-mode tv-sweep --frequency 100 --duration 30.0 --gear1=6 --gear2=6 

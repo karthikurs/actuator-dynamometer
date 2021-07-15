@@ -210,7 +210,7 @@ Adafruit_INA260 &ina1, Adafruit_INA260 &ina2) : ads_(ads), ina1_(ina1), ina2_(in
     system("python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '3=1;4=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_1_dyn.log");
     system("python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '3=1;4=2' --restore-cal /home/pi/embir-modular-leg/moteus-setup/moteus-cal/ri50_cal_2_dyn.log");
   }
-
+  if (dyn_opts["swap-actuators"].as<bool>()) swap_actuators();
   fib_.resize(lpf_order_+1);
   fob_.resize(lpf_order_+1);
   lpf_dcof_ = dcof_bwlp(lpf_order_, 2*lpf_fc_*dynset_.period_s);
@@ -528,14 +528,15 @@ void Dynamometer::generate_commands(double time,
       if (sd_.temp1_C > step_temp_ceiling_C_) step_temp_latch = true;
       else if (sd_.temp1_C < step_temp_floor_C_ && step_temp_latch) step_temp_latch = false;
 
-      if (!step_temp_latch) cmda.feedforward_torque = step_mag_Nm_;
-      else cmda.feedforward_torque = 0;
       cmda.position = 0;
       cmda.velocity = 0;
+      if (!step_temp_latch) cmda.feedforward_torque = step_mag_Nm_;
+      else cmda.feedforward_torque = 0;
       
-      cmdb.kp_scale = 10; cmdb.kd_scale = 5;
+      cmdb.kp_scale = 10; cmdb.kd_scale = 1;
       cmdb.position = 0;
       cmdb.velocity = 0;
+      // cmdb.velocity = std::numeric_limits<double>::quiet_NaN();
       cmdb.feedforward_torque = 0;
       break;
       }
@@ -627,7 +628,7 @@ void Dynamometer::sample_sensors() {
     t2 = (1.0/298.15) + (1.0/3950.0)*log10(Rt/R0);
     t2 = 1.0/t2 - 273.15;
 
-    t2 = alpha*t1 + (1-alpha)*sd_.temp1_C;
+    t2 = alpha*t2 + (1-alpha)*sd_.temp2_C;
     // std::cout << "sd_.temp1_C - " << sd_.temp1_C << ",\n"
     //   << "sd_.temp2_C = " << sd_.temp2_C << ",\n"
     //   << "Vt = " << Vt << ",\n"
@@ -905,6 +906,7 @@ cxxopts::Options dyn_opts() {
     ("frequency", "test sampling and command frequency in Hz", cxxopts::value<float>()->default_value("250"))
     ("test-mode", "choose between [KT|GRP|direct-damping|TV-sweep|manual]", cxxopts::value<std::string>()->default_value("none"))
     ("skip-cal", "skip recalibration")
+    ("swap-actuators", "start with actuator roles swapped (driving vs. load)")
     ("h,help", "Print usage")
   ;
 

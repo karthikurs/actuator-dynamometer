@@ -1,5 +1,5 @@
 {
-  "torque_step_mag_Nm" : 5,
+  "torque_step_mag_Nm" : 0.5,
   "temp_ceiling_C" : 75,
   "temp_floor_C" : 30
 }
