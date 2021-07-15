@@ -1,5 +1,5 @@
 {
-  "max_motor_temp_C" : 80,
+  "max_motor_temp_C" : 85,
   "max_housing_temp_C" : 100,
   "trs605-5_max_torque_Nm" : 6,
   "trd605-18_max_torque_Nm" : 20,
