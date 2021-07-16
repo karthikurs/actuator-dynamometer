@@ -71,8 +71,8 @@ async def init_controllers():
     cal_file_2 = "moteus-setup/moteus-cal/ri50_cal_2_leg.log"
     
     print("loading moteus controller calibration from " + cal_file_1 + ", " +cal_file_2 + " ...")
-    cmd1 = "python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '1=1,2' --restore-cal " + cal_file_1
-    cmd2 = "python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '1=1,2' --restore-cal " + cal_file_2
+    cmd1 = "sudo python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '1=1,2' --restore-cal " + cal_file_1
+    cmd2 = "sudo python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '1=1,2' --restore-cal " + cal_file_2
     print(cmd1)        
     os.system(cmd1)
     print(cmd2)
