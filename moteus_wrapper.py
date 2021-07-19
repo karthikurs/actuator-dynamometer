@@ -67,16 +67,16 @@ async def init_controllers():
     stream1 = moteus.Stream(c1)
     stream2 = moteus.Stream(c2)
     
-    cal_file_1 = "moteus-setup/moteus-cal/ri50_cal_1_leg.log"
-    cal_file_2 = "moteus-setup/moteus-cal/ri50_cal_2_leg.log"
+    cal_file_1 = "ri50_cal_1_leg.log"
+    cal_file_2 = "ri50_cal_2_leg.log"
     
-    print("loading moteus controller calibration from " + cal_file_1 + ", " +cal_file_2 + " ...")
-    cmd1 = "sudo python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '1=1,2' --restore-cal " + cal_file_1
-    cmd2 = "sudo python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '1=1,2' --restore-cal " + cal_file_2
-    print(cmd1)        
-    os.system(cmd1)
-    print(cmd2)
-    os.system(cmd2)
+    # print("loading moteus controller calibration from " + cal_file_1 + ", " +cal_file_2 + " ...")
+    # cmd1 = "sudo python3 -m moteus.moteus_tool --target 1 --pi3hat-cfg '1=1,2' --restore-cal " + cal_file_1
+    # cmd2 = "sudo python3 -m moteus.moteus_tool --target 2 --pi3hat-cfg '1=1,2' --restore-cal " + cal_file_2
+    # print(cmd1)        
+    # os.system(cmd1)
+    # print(cmd2)
+    # os.system(cmd2)
     
     cal1 = json.load(open(cal_file_1, "r"))
     kt_1 = 0.78*cal1["v_per_hz"]/np.pi

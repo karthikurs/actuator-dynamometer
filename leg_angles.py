@@ -66,6 +66,11 @@ async def main():
             t1 = dt[0,0]
             t2 = dt[1,0]
             # print('fx={} fy={} t1={} t2={}'.format(fx, fy, t1, t2))
+            # replies = await transport.cycle(\
+            #                 [c1.make_stop(query=True),\
+            #                 c2.make_stop(query=True)])
+
+
             replies = await transport.cycle(\
                             [c1.make_stop(query=True),\
                             c2.make_stop(query=True)])
@@ -76,14 +81,13 @@ async def main():
             p1, v1, t1 = parse_reply(reply1, 6)
             p2, v2, t2 = parse_reply(reply2, 6)
 
-
             # p1, v1, t1 = parse_reply(await c1.set_current(q_A=t1/kt_1, d_A=0.0, query=True), g=6)
             # p2, v2, t2 = parse_reply(await c2.set_current(q_A=t2/kt_2, d_A=0.0, query=True), g=6)
             print('p1={},v1={},t1={}'.format(p1, v1, t1))
             print('p2={},v2={},t2={}'.format(p2, v2, t2))
 
-            adj_1=0.31862059281708005
-            adj_2=1.164099670406716
+            adj_1=0.39653403366843826
+            adj_2=0.05733253194722584
             
             # adj_1=0.09433981845496693
             # adj_2=0.32315861931457507

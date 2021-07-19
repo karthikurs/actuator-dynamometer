@@ -97,14 +97,16 @@ async def main():
             
             # adj_1=0.15433981845496693
             # adj_2=0.34315861931457507
-            d_p1=0+adj_1
-            d_p2=0+adj_2
+            knee_dangle=-0.69
+            shoulder_dangle=-0.227
+            d_p1=shoulder_dangle+adj_1
+            d_p2=knee_dangle+adj_2
             d_pos1=(d_p1*6)/(2*np.pi)
             d_pos2=(d_p2*6)/(2*np.pi)
 
 
-            p1, v1, t1 = parse_reply(await c1.set_position(position=np.NaN, velocity=0.5, maximum_torque=0.3,stop_position=d_pos1,query=True), g=6)
-            p2, v2, t2 = parse_reply(await c2.set_position(position=np.NaN, velocity=0.5, maximum_torque=0.3,stop_position=d_pos2,query=True), g=6)
+            p1, v1, t1 = parse_reply(await c1.set_position(position=np.NaN, velocity=0.5, maximum_torque=0.5,stop_position=d_pos1,query=True), g=6)
+            p2, v2, t2 = parse_reply(await c2.set_position(position=np.NaN, velocity=0.5, maximum_torque=0.5,stop_position=d_pos2,query=True), g=6)
 
             p1_h=p1-adj_1
             p2_h=p2-adj_2
@@ -158,7 +160,7 @@ async def main():
         except (KeyboardInterrupt, SystemExit):
             print("stopping actuators and cleaning...")
             print('Saving torques')
-            # np.savetxt("home_pos_torque_log.csv", torques, delimiter=",")
+            np.savetxt("standing_torque_log.csv", torques, delimiter=",")
             print('Torques saved')
             await c1.set_stop()
             await c2.set_stop()
@@ -169,7 +171,7 @@ async def main():
         except:
             os.system("sudo ip link set can0 down")
             print('Saving torques')
-            # np.savetxt("home_pos_torque_log.csv", torques, delimiter=",")
+            np.savetxt("standing_torque_log.csv", torques, delimiter=",")
             print('Torques saved')
             print("something went wrong")
             raise

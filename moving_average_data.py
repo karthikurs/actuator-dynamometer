@@ -53,8 +53,9 @@ N=20
 ################Actuator1&2 TORQUES
 
 # Data for plotting
-with open('leg_jump1.csv') as des_torques:
-        csvReader = csv.reader(des_torques)
+# with open('leg_jump1.csv') as des_torques:
+with open('standing_torque_log.csv') as des_torques:
+        csvReader = csv.reader(des_torques)  
         for row in csvReader:
             time.append(float(row[0]))
             t1.append(float(row[1]))

@@ -79,7 +79,7 @@
       1.3147349070897083
     ]
   },
-  "winding_resistance": 1.4,
+  "winding_resistance": 1.4735301516704942,
   "inductance": null,
   "pid_dq_kp": null,
   "pid_dq_ki": null,
@@ -87,7 +87,7 @@
   "encoder_filter_bw_hz": null,
   "encoder_filter_kp": null,
   "encoder_filter_ki": null,
-  "v_per_hz": 0.4411238602482549,
-  "kv": 68.00810997418424,
+  "v_per_hz": 0.40960000000000013,
+  "kv": 73.24218749999997,
   "unwrapped_position_scale": 1.0
 }
