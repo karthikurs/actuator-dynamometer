@@ -1,5 +1,5 @@
 {
-  "timestamp": "2021-06-30 16:58:29.285821",
+  "timestamp": "2021-07-20 17:30:55.138672",
   "device_info": {
     "serial_number": "ACoARjdTUA0gMjlC",
     "model": "600",
@@ -79,15 +79,15 @@
       2.43934435001377
     ]
   },
-  "winding_resistance": 1.4,
-  "inductance": 0.0006439670063023988,
+  "winding_resistance": 0.667739901757163,
+  "inductance": 0.0008540981454246925,
   "pid_dq_kp": 0.2,
-  "pid_dq_ki": 420.745993879574,
-  "torque_bw_hz": 49.42953335629689,
+  "pid_dq_ki": 156.36139835548653,
+  "torque_bw_hz": 37.26853733249988,
   "encoder_filter_bw_hz": 100,
   "encoder_filter_kp": 1256.6370614359173,
   "encoder_filter_ki": 394784.17604357435,
-  "v_per_hz": 0.4229067033678567,
-  "kv": 70.93763177810193,
+  "v_per_hz": 0.3496412171743503,
+  "kv": 85.80224105855447,
   "unwrapped_position_scale": 1.0
 }

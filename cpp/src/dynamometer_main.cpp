@@ -324,6 +324,7 @@ int main(int argc, char** argv) {
   std::ostringstream filename_stream;
   filename_stream << std::put_time(std::localtime(&nowc), "dynamometer_test_%d_%m_%Y_%H-%M-%S.csv");
   std::string filename = filename_stream.str();
+  std::cout << "outputting to file \"" << filename << "\"" << std::endl;
 
   // std::ofstream data_file("/home/pi/embir-modular-leg/dynamometer-data/"+filename);
   std::ofstream data_file(opts["path"].as<std::string>()+filename);

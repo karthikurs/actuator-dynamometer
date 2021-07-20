@@ -391,7 +391,7 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       // step index
       // get new torque and vel values
       // assign them into commands
-      float vel = dynset_.replay_vel_scale * replay_vel[replay_idx] * dynset_.gear2;
+      float vel = dynset_.replay_vel_scale * replay_vel[replay_idx] * dynset_.gear2 / (2*PI);
       float trq = dynset_.replay_trq_scale * replay_trq[replay_idx] / dynset_.gear1;
       ++replay_idx;
       if (replay_idx == replay_trq.size()) {
@@ -408,10 +408,10 @@ void Dynamometer::run_durability_fsm(mjbots::moteus::PositionCommand &cmda,
       cmda.kp_scale = 0; cmda.kd_scale = 0;
       cmda.feedforward_torque = trq;
       
-      cmdb.kp_scale = 2; cmdb.kd_scale = 2;
+      cmdb.kp_scale = 0.4; cmdb.kd_scale = 0.2;
       cmdb.position = std::numeric_limits<double>::quiet_NaN();
       cmdb.velocity = -vel;
-      cmdb.feedforward_torque = 0;
+      cmdb.feedforward_torque = 0.95*trq;
       // cmdb.feedforward_torque = trq;
 
       break;
@@ -636,8 +636,8 @@ void Dynamometer::sample_sensors() {
     adc = ads_.readADC_SingleEnded(3);
     Vt = ads_.computeVolts(adc);
     Rt = Rf*Vt / (V0 - Vt);
-    t2 = (1.0/298.15) + (1.0/3950.0)*log10(Rt/R0);
-    if (std::isnan(t2)) t2 = sd_.temp1_C;
+    t2 = (1.0/298.15) + (1.0/3950.0)*log(Rt/R0);
+    if (std::isnan(t2)) t2 = sd_.temp2_C;
     else t2 = 1.0/t2 - 273.15;
 
     t2 = alpha*t2 + (1-alpha)*sd_.temp2_C;
